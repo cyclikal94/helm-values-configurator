@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helm Values Configurator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/eclipse.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap">
+</head>
+<body>
+    <header class="app-header">
+        <h1>Helm Values Configurator</h1>
+    </header>
+
+    <div class="container">
+        <div class="config-section">
+            <div id="form-container"></div>
+        </div>
+        <div class="yaml-section">
+            <div class="yaml-header">
+                <h2>YAML Output</h2>
+                <div class="yaml-status valid">
+                    <span class="status-icon">✓</span>
+                    <span class="status-text">Valid YAML</span>
+                </div>
+            </div>
+            <div class="yaml-editor" id="yaml-editor"></div>
+            <div class="yaml-error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <div class="actions">
+            <button id="download-btn">Download values.yaml</button>
+            <button id="reset-btn">Reset Form</button>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/yaml/yaml.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
