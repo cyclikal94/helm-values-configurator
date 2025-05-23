@@ -101,6 +101,7 @@ body {
 
 .config-section {
     position: relative;
+    z-index: 100;
 }
 
 .config-section.disabled {
