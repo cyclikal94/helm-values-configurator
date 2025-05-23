@@ -858,8 +858,8 @@ function getDefaultValue(path) {
     
     // Handle type coercion for proper comparison
     if (current !== undefined && current !== null) {
-        if (typeof current === 'string' && !isNaN(current)) {
-            // Convert numeric strings to numbers
+        if (typeof current === 'string' && current !== '' && !isNaN(current)) {
+            // Convert numeric strings to numbers, but preserve empty strings
             return Number(current);
         } else if (typeof current === 'boolean') {
             // Ensure booleans stay as booleans
