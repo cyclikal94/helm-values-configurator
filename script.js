@@ -223,7 +223,37 @@ function updateFormFromYaml(values, parentPath = '') {
                 }
             }
         } else if (typeof value === 'object' && value !== null) {
-            if (value.hasOwnProperty('enabled')) {
+            const container = document.getElementById(`${path}-container`);
+            const itemSchema = findSchemaForPath(path);
+            
+            // Handle free-form objects (key/value pairs)
+            if (container && itemSchema && !itemSchema.properties) {
+                container.innerHTML = '';
+                Object.entries(value).forEach(([objKey, objValue]) => {
+                    const prop = itemSchema.additionalProperties || { type: 'string' };
+                    addObjectKeyValuePair(path, prop, container);
+                    
+                    // Set the key and value
+                    const keyInput = container.lastElementChild.querySelector(`input[data-path="${path}[key]"]`);
+                    const valueInput = container.lastElementChild.querySelector(`[data-path="${path}[value]"]`);
+                    const warningIcon = container.lastElementChild.querySelector('.warning-icon');
+                    
+                    if (keyInput) {
+                        keyInput.value = objKey;
+                        // Update warning visibility
+                        if (warningIcon) {
+                            warningIcon.style.display = isNumericKey(objKey) ? 'block' : 'none';
+                        }
+                    }
+                    if (valueInput) {
+                        if (valueInput.type === 'checkbox') {
+                            valueInput.checked = objValue;
+                        } else {
+                            valueInput.value = objValue;
+                        }
+                    }
+                });
+            } else if (value.hasOwnProperty('enabled')) {
                 const checkbox = document.querySelector(`input[data-path="${path}.enabled"]`);
                 if (checkbox && checkbox.checked !== value.enabled) {
                     checkbox.checked = value.enabled;
@@ -281,122 +311,62 @@ function updateYamlFromForm() {
 // Update getFormValues to properly handle object fields
 function getFormValues() {
     const values = {};
+    const inputs = document.querySelectorAll('#form-container input, #form-container select');
     
-    function processInput(element) {
-        const path = element.dataset.path;
+    inputs.forEach(input => {
+        const path = input.getAttribute('data-path');
         if (!path) return;
         
-        let value;
-        if (element.type === 'checkbox') {
-            if (path.endsWith('.enabled') && !element.checked) {
-                return;
-            }
-            value = element.checked;
-        } else if (element.type === 'number') {
-            value = element.value ? Number(element.value) : undefined;
-        } else if (element.tagName.toLowerCase() === 'select') {
-            value = element.value || undefined;
+        let value = input.type === 'checkbox' ? input.checked : input.value;
+        
+        // Convert numeric strings to numbers
+        if (input.type === 'number' && value !== '') {
+            value = Number(value);
+        }
+        
+        // Skip empty values
+        if (value === '' || value === null || value === undefined) return;
+        
+        // Get the default value for this path
+        const defaultValue = getDefaultValueForPath(path);
+        
+        // Skip if the value matches the default
+        if (defaultValue !== undefined && value === defaultValue) return;
+        
+        // Handle array items
+        if (path.includes('[]')) {
+            const arrayPath = path.split('[]')[0];
+            const arrayValues = getArrayValues(document.getElementById(`${arrayPath}-container`), arrayPath);
+            setValueAtPath(values, arrayPath, arrayValues);
         } else {
-            value = element.value || undefined;
+            setValueAtPath(values, path, value);
+        }
+    });
+    
+    return values;
+}
+
+// Helper function to get default value for a path
+function getDefaultValueForPath(path) {
+    if (!defaultValues) return undefined;
+    
+    const parts = path.split('.');
+    let current = defaultValues;
+    
+    for (const part of parts) {
+        if (current === undefined || current === null) return undefined;
+        
+        // Handle array indices
+        if (part.includes('[')) {
+            const arrayPath = part.split('[')[0];
+            current = current[arrayPath];
+            continue;
         }
         
-        if (value === undefined) return;
-        
-        const parts = path.split('.');
-        let current = values;
-        
-        for (let i = 0; i < parts.length; i++) {
-            const part = parts[i];
-            const isLast = i === parts.length - 1;
-            
-            if (part.endsWith('[]')) {
-                const arrayKey = part.slice(0, -2);
-                if (!current[arrayKey]) current[arrayKey] = [];
-                
-                const arrayItem = element.closest('.array-item');
-                if (!arrayItem) continue;
-                
-                const arrayContainer = arrayItem.parentNode;
-                const index = Array.from(arrayContainer.children)
-                    .filter(el => el.classList.contains('array-item'))
-                    .indexOf(arrayItem);
-                
-                if (isLast) {
-                    current[arrayKey][index] = value;
-                } else {
-                    if (!current[arrayKey][index]) current[arrayKey][index] = {};
-                    current = current[arrayKey][index];
-                }
-            } else if (part.includes('[')) {
-                // Handle object key-value pairs
-                const objectKey = part.split('[')[0];
-                const isKey = part.endsWith('[key]');
-                const isValue = part.endsWith('[value]');
-                
-                if (!current[objectKey]) current[objectKey] = {};
-                
-                if (isKey) {
-                    // Store the key temporarily
-                    const itemDiv = element.closest('.key-value-item');
-                    if (itemDiv) {
-                        const valueInput = itemDiv.querySelector(`[data-path$="[value]"]`);
-                        if (valueInput && element.value) {
-                            let valueToSet;
-                            if (valueInput.type === 'checkbox') {
-                                valueToSet = valueInput.checked;
-                            } else if (valueInput.type === 'number') {
-                                valueToSet = valueInput.value ? Number(valueInput.value) : null;
-                            } else {
-                                valueToSet = valueInput.value || null;
-                            }
-                            current[objectKey][element.value] = valueToSet;
-                        }
-                    }
-                }
-                // Skip value processing as it's handled with the key
-                return;
-            } else {
-                if (!isLast) {
-                    if (!current[part]) current[part] = {};
-                    current = current[part];
-                } else {
-                    current[part] = value;
-                }
-            }
-        }
+        current = current[part];
     }
     
-    document.querySelectorAll('input, select').forEach(processInput);
-    
-    // Clean up empty objects and arrays
-    function cleanupEmptyObjects(obj) {
-        if (typeof obj !== 'object' || obj === null) return obj;
-        
-        if (Array.isArray(obj)) {
-            const cleanArray = obj.map(item => cleanupEmptyObjects(item))
-                .filter(item => {
-                    if (item === undefined) return false;
-                    if (typeof item === 'object' && Object.keys(item).length === 0) return false;
-                    return true;
-                });
-            return cleanArray.length ? cleanArray : undefined;
-        }
-        
-        const cleaned = {};
-        let hasValues = false;
-        
-        for (const [key, value] of Object.entries(obj)) {
-            const cleanValue = cleanupEmptyObjects(value);
-            if (cleanValue !== undefined) {
-                cleaned[key] = cleanValue;
-                hasValues = true;
-            }
-        }
-        
-        return hasValues ? cleaned : undefined;
-    }
-    
-    return cleanupEmptyObjects(values) || {};
+    return current;
 }
 
 // Remove the global input event listener and update the form change handling
@@ -404,6 +374,10 @@ function setupFormChangeHandlers() {
     const formContainer = document.getElementById('form-container');
     
     formContainer.addEventListener('input', (e) => {
+        // Skip YAML updates for key inputs while typing
+        if (e.target.matches('input[data-path$="[key]"]')) {
+            return;
+        }
         if (e.target.matches('input, select')) {
             updateYamlFromForm();
         }
@@ -1016,43 +990,64 @@ function updateRemoveAllVisibility(container, removeAllButton) {
 
 // Update getArrayValues to only include non-empty items
 function getArrayValues(container, path) {
+    if (!container) return [];
+    
     const values = [];
-    container.querySelectorAll('.array-item').forEach(item => {
-        if (item.querySelector(`input[data-path^="${path}[]"], select[data-path^="${path}[]"]`)) {
-            const itemValues = {};
-            let hasValue = false;
+    const items = Array.from(container.children);
+    
+    items.forEach(item => {
+        const inputs = item.querySelectorAll('input, select');
+        if (!inputs.length) return;
+        
+        // For simple arrays with single values
+        if (inputs.length === 1) {
+            const input = inputs[0];
+            let value = input.type === 'checkbox' ? input.checked : input.value;
+            if (input.type === 'number' && value !== '') {
+                value = Number(value);
+            }
+            if (value !== '' && value !== null && value !== undefined) {
+                values.push(value);
+            }
+            return;
+        }
+        
+        // For arrays of objects
+        const itemValue = {};
+        let hasValue = false;
+        
+        inputs.forEach(input => {
+            const inputPath = input.getAttribute('data-path');
+            if (!inputPath) return;
             
-            item.querySelectorAll('input, select').forEach(input => {
-                const inputPath = input.dataset.path;
-                if (inputPath && inputPath.startsWith(`${path}[]`)) {
-                    const key = inputPath.replace(`${path}[].`, '').replace(`${path}[]`, '');
-                    let value;
-                    
-                    if (input.type === 'checkbox') {
-                        value = input.checked;
-                    } else if (input.tagName.toLowerCase() === 'select') {
-                        value = input.value || undefined;
-                    } else {
-                        value = input.value || undefined;
-                    }
-                    
-                    if (value !== undefined) {
-                        hasValue = true;
-                        if (key) {
-                            itemValues[key] = value;
-                        } else {
-                            values.push(value);
-                            return; // Exit early for primitive array items
-                        }
-                    }
-                }
-            });
+            const key = inputPath.split('[]')[1]?.split('.')[1];
+            if (!key) return;
             
-            if (hasValue && Object.keys(itemValues).length > 0) {
-                values.push(itemValues);
+            let value = input.type === 'checkbox' ? input.checked : input.value;
+            if (input.type === 'number' && value !== '') {
+                value = Number(value);
+            }
+            
+            if (value !== '' && value !== null && value !== undefined) {
+                itemValue[key] = value;
+                hasValue = true;
+            }
+        });
+        
+        if (hasValue) {
+            // Check if this object matches a default value
+            const defaultArray = getDefaultValueForPath(path);
+            if (!defaultArray || !Array.isArray(defaultArray) || 
+                !defaultArray.some(defaultItem => 
+                    Object.keys(itemValue).every(key => 
+                        defaultItem[key] === itemValue[key]
+                    )
+                )) {
+                values.push(itemValue);
             }
         }
     });
+    
     return values;
 }
 
@@ -1119,8 +1114,13 @@ function updateObjectItemControls(container) {
         // Remove existing move buttons
         controls.querySelectorAll('.move-btn').forEach(btn => btn.remove());
         
-        // Get the key input value
+        // Get the key input value and update warning visibility
         const keyInput = item.querySelector('input[data-path$="[key]"]');
+        const warningIcon = item.querySelector('.warning-icon');
+        if (keyInput && warningIcon) {
+            warningIcon.style.display = isNumericKey(keyInput.value) ? 'block' : 'none';
+        }
+        
         if (!keyInput || isNumericKey(keyInput.value)) {
             return; // Skip adding reorder controls for numeric keys
         }
@@ -1176,6 +1176,15 @@ function sortObjectItems(container, changedItem = null) {
     items.forEach(item => {
         const rect = item.getBoundingClientRect();
         currentPositions.set(item, rect.top);
+    });
+    
+    // Update warning visibility for all items
+    items.forEach(item => {
+        const keyInput = item.querySelector('input[data-path$="[key]"]');
+        const warningIcon = item.querySelector('.warning-icon');
+        if (keyInput && warningIcon) {
+            warningIcon.style.display = isNumericKey(keyInput.value) ? 'block' : 'none';
+        }
     });
     
     // Get current index of changed item
@@ -1268,12 +1277,6 @@ function sortObjectItems(container, changedItem = null) {
         sortedItems.forEach(item => container.appendChild(item));
     }, 300);
 }
-
-// Debounce the sort and control updates
-const debouncedSortAndUpdate = debounce((container) => {
-    sortObjectItems(container);
-    updateObjectItemControls(container);
-}, 300);
 
 function smoothlyReorderKeyValueItems(container, movingItem, targetItem, direction) {
     // Get the positions and heights
@@ -1378,14 +1381,12 @@ function addObjectKeyValuePair(path, prop, container) {
             // Show/hide numeric warning
             warningIcon.style.display = isNumeric ? 'block' : 'none';
         } else {
-            // Hide both icons if input is empty
+            // Only hide warning if the field is empty
             warningIcon.style.display = 'none';
             errorIcon.style.display = 'none';
             keyInput.classList.remove('error');
             isDuplicateState = false;
         }
-        
-        updateYamlFromForm();
     });
     
     keyInput.addEventListener('blur', () => {
@@ -1393,22 +1394,25 @@ function addObjectKeyValuePair(path, prop, container) {
         if (!value) return;  // Don't check empty values
         
         const isDuplicate = checkDuplicateKey(value);
+        const isNumeric = isNumericKey(value);
         
         // Handle duplicate keys
         if (isDuplicate) {
             isDuplicateState = true;
             errorIcon.style.display = 'block';
-            warningIcon.style.display = 'none';
+            warningIcon.style.display = 'none'; // Hide warning when showing error
             keyInput.value = ''; // Clear the duplicate value
             keyInput.classList.add('error');
             keyInput.focus();
+            // Do NOT update YAML for duplicates
         } else {
-            // Only sort if there's no duplicate
+            // Show numeric warning if applicable
+            warningIcon.style.display = isNumeric ? 'block' : 'none';
+            // Only sort and update YAML if there's no duplicate
             sortObjectItems(container, itemDiv);
             updateObjectItemControls(container);
+            updateYamlFromForm(); // Move YAML update here, only for valid keys
         }
-        
-        updateYamlFromForm();
     });
     
     // Add elements to wrapper
@@ -1528,4 +1532,58 @@ function updateObjectItemTitles(container) {
         const keyInput = item.querySelector('input[data-path$="[key]"]');
         title.textContent = keyInput && keyInput.value ? keyInput.value : `Key/Value Pair ${index + 1}`;
     });
+}
+
+// Helper function to set a value at a specific path in an object
+function setValueAtPath(obj, path, value) {
+    const parts = path.split('.');
+    let current = obj;
+    
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = i === parts.length - 1;
+        
+        if (part.includes('[')) {
+            // Handle object key-value pairs
+            const objectKey = part.split('[')[0];
+            const isKey = part.endsWith('[key]');
+            const isValue = part.endsWith('[value]');
+            
+            if (!current[objectKey]) current[objectKey] = {};
+            
+            if (isKey) {
+                // Store the key temporarily
+                const itemDiv = document.querySelector(`[data-path="${path}"]`).closest('.key-value-item');
+                if (itemDiv) {
+                    const valueInput = itemDiv.querySelector(`[data-path$="[value]"]`);
+                    if (valueInput && value) {
+                        let valueToSet;
+                        if (valueInput.type === 'checkbox') {
+                            valueToSet = valueInput.checked;
+                        } else if (valueInput.type === 'number') {
+                            valueToSet = valueInput.value ? Number(valueInput.value) : null;
+                        } else {
+                            valueToSet = valueInput.value || null;
+                        }
+                        
+                        // Check if this key-value pair exists in defaults
+                        const defaultObj = getDefaultValueForPath(objectKey);
+                        if (defaultObj && defaultObj[value] === valueToSet) {
+                            return; // Skip if matches default
+                        }
+                        
+                        current[objectKey][value] = valueToSet;
+                    }
+                }
+            }
+            return; // Skip value processing as it's handled with the key
+        } else {
+            if (!isLast) {
+                if (!current[part]) current[part] = {};
+                current = current[part];
+            } else {
+                current[part] = value;
+            }
+        }
+    }
 } 
