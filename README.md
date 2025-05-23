@@ -1,7 +1,7 @@
 # readme
 todo:
 - [ ] Pasting YAML updates UI key/value pairs
-- [ ] Change the pin icon so it works like the warning/error tooltips/icons in the key/value objects
+- [x] Change the pin icon so it works like the warning/error tooltips/icons in the key/value objects
 - [ ] Make drop-downs pickup default values OR hidden empty
 - [ ] Pickup default key/value pairs & arrays
 

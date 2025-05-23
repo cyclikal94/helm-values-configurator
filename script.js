@@ -325,7 +325,27 @@ function getFormValues() {
         } else if (element.tagName.toLowerCase() === 'select') {
             value = element.value || undefined;
         } else {
-            value = element.value || undefined;
+            // Special handling for key-value pair values
+            if (path.endsWith('[value]')) {
+                const trimmedValue = (element.value || '').trim();
+                if (!trimmedValue) {
+                    const wrapper = element.closest('.value-input-wrapper');
+                    if (wrapper) {
+                        const warningIcon = wrapper.querySelector('.empty-value-warning');
+                        if (warningIcon && warningIcon.dataset.mode === 'empty') {
+                            value = ''; // Use empty string
+                        } else {
+                            value = null; // Explicitly use null instead of undefined
+                        }
+                    } else {
+                        value = null;
+                    }
+                } else {
+                    value = element.value;
+                }
+            } else {
+                value = element.value || undefined;
+            }
         }
         
         // Include value if it's overridden, even if it matches default
@@ -382,7 +402,23 @@ function getFormValues() {
                             } else if (valueInput.type === 'number') {
                                 valueToSet = valueInput.value ? Number(valueInput.value) : null;
                             } else {
-                                valueToSet = valueInput.value || null;
+                                // Handle empty value modes for key-value pairs
+                                const trimmedValue = (valueInput.value || '').trim();
+                                if (!trimmedValue) {
+                                    const wrapper = valueInput.closest('.value-input-wrapper');
+                                    if (wrapper) {
+                                        const warningIcon = wrapper.querySelector('.empty-value-warning');
+                                        if (warningIcon && warningIcon.dataset.mode === 'empty') {
+                                            valueToSet = ''; // Use empty string
+                                        } else {
+                                            valueToSet = null; // Explicitly use null
+                                        }
+                                    } else {
+                                        valueToSet = null;
+                                    }
+                                } else {
+                                    valueToSet = valueInput.value;
+                                }
                             }
                             current[objectKey][element.value] = valueToSet;
                         }
@@ -851,11 +887,10 @@ function createInput(prop, path) {
         select.id = path;
         select.dataset.path = path;
         
-        // Add an empty option first
-        const emptyOption = document.createElement('option');
-        emptyOption.value = '';
-        emptyOption.textContent = '-- Select --';
-        select.appendChild(emptyOption);
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select...';
+        select.appendChild(defaultOption);
         
         prop.enum.forEach(value => {
             const option = document.createElement('option');
@@ -869,6 +904,9 @@ function createInput(prop, path) {
         
         return select;
     } else {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'input-wrapper';
+
         const input = document.createElement('input');
         input.type = prop.type === 'integer' || prop.type === 'number' ? 'number' : 'text';
         input.id = path;
@@ -881,8 +919,22 @@ function createInput(prop, path) {
         if (defaultValue !== undefined && defaultValue !== null) {
             input.placeholder = defaultValue;
         }
+
+        // Create pin icon
+        const pinIcon = document.createElement('span');
+        pinIcon.className = 'pin-icon';
+        pinIcon.innerHTML = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'><path fill-rule='evenodd' clip-rule='evenodd' d='M17.1218 1.87023C15.7573 0.505682 13.4779 0.76575 12.4558 2.40261L9.61062 6.95916C9.61033 6.95965 9.60913 6.96167 9.6038 6.96549C9.59728 6.97016 9.58336 6.97822 9.56001 6.9848C9.50899 6.99916 9.44234 6.99805 9.38281 6.97599C8.41173 6.61599 6.74483 6.22052 5.01389 6.87251C4.08132 7.22378 3.61596 8.03222 3.56525 8.85243C3.51687 9.63502 3.83293 10.4395 4.41425 11.0208L7.94975 14.5563L1.26973 21.2363C0.879206 21.6269 0.879206 22.26 1.26973 22.6506C1.66025 23.0411 2.29342 23.0411 2.68394 22.6506L9.36397 15.9705L12.8995 19.5061C13.4808 20.0874 14.2853 20.4035 15.0679 20.3551C15.8881 20.3044 16.6966 19.839 17.0478 18.9065C17.6998 17.1755 17.3043 15.5086 16.9444 14.5375C16.9223 14.478 16.9212 14.4114 16.9355 14.3603C16.9421 14.337 16.9502 14.3231 16.9549 14.3165C16.9587 14.3112 16.9606 14.31 16.9611 14.3098L21.5177 11.4645C23.1546 10.4424 23.4147 8.16307 22.0501 6.79853L17.1218 1.87023ZM14.1523 3.46191C14.493 2.91629 15.2528 2.8296 15.7076 3.28445L20.6359 8.21274C21.0907 8.66759 21.0041 9.42737 20.4584 9.76806L15.9019 12.6133C14.9572 13.2032 14.7469 14.3637 15.0691 15.2327C15.3549 16.0037 15.5829 17.1217 15.1762 18.2015C15.1484 18.2752 15.1175 18.3018 15.0985 18.3149C15.0743 18.3316 15.0266 18.3538 14.9445 18.3589C14.767 18.3699 14.5135 18.2916 14.3137 18.0919L5.82846 9.6066C5.62872 9.40686 5.55046 9.15333 5.56144 8.97583C5.56651 8.8937 5.58877 8.84605 5.60548 8.82181C5.61855 8.80285 5.64516 8.7719 5.71886 8.74414C6.79869 8.33741 7.91661 8.56545 8.68762 8.85128C9.55668 9.17345 10.7171 8.96318 11.3071 8.01845L14.1523 3.46191Z'/></svg>`;
+        pinIcon.dataset.tooltip = 'This value has been overridden from its default';
         
-        return input;
+        // Show pin icon if field is overridden
+        if (overriddenFields.has(path)) {
+            pinIcon.classList.add('visible');
+        }
+
+        wrapper.appendChild(input);
+        wrapper.appendChild(pinIcon);
+        
+        return wrapper;
     }
 }
 
@@ -1465,17 +1517,17 @@ function addObjectKeyValuePair(path, prop, container) {
     // Create warning icon for numeric keys
     const warningIcon = document.createElement('span');
     warningIcon.className = 'warning-icon';
-    warningIcon.innerHTML = '⚠'; // Unicode warning triangle
+    warningIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.8984 3.61441C12.5328 2.86669 11.4672 2.86669 11.1016 3.61441L3.30562 19.5608C2.98083 20.2251 3.46451 21 4.204 21H19.796C20.5355 21 21.0192 20.2251 20.6944 19.5608L12.8984 3.61441ZM9.30485 2.73599C10.4015 0.492834 13.5985 0.492825 14.6952 2.73599L22.4912 18.6824C23.4655 20.6754 22.0145 23 19.796 23H4.204C1.98555 23 0.534479 20.6754 1.50885 18.6824L9.30485 2.73599Z M11 8.49999C11 7.94771 11.4477 7.49999 12 7.49999C12.5523 7.49999 13 7.94771 13 8.49999V14C13 14.5523 12.5523 15 12 15C11.4477 15 11 14.5523 11 14V8.49999Z M13.5 18C13.5 18.8284 12.8285 19.5 12 19.5C11.1716 19.5 10.5 18.8284 10.5 18C10.5 17.1716 11.1716 16.5 12 16.5C12.8285 16.5 13.5 17.1716 13.5 18Z"/></svg>`;
     warningIcon.dataset.tooltip = 'Numerical keys will be automatically sorted and cannot be reordered';
     warningIcon.style.display = 'none';
 
     // Create error icon for duplicate keys
     const errorIcon = document.createElement('span');
     errorIcon.className = 'error-icon';
-    errorIcon.innerHTML = '⛔'; // Unicode no entry sign
+    errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 12C6 12.5523 6.44772 13 7 13L17 13C17.5523 13 18 12.5523 18 12C18 11.4477 17.5523 11 17 11H7C6.44772 11 6 11.4477 6 12Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12 23C18.0751 23 23 18.0751 23 12C23 5.92487 18.0751 1 12 1C5.92487 1 1 5.92487 1 12C1 18.0751 5.92487 23 12 23ZM12 20.9932C7.03321 20.9932 3.00683 16.9668 3.00683 12C3.00683 7.03321 7.03321 3.00683 12 3.00683C16.9668 3.00683 20.9932 7.03321 20.9932 12C20.9932 16.9668 16.9668 20.9932 12 20.9932Z"/></svg>`;
     errorIcon.dataset.tooltip = 'Duplicate keys are not supported';
     errorIcon.style.display = 'none';
-    
+
     // Function to check for duplicate keys
     const checkDuplicateKey = (value) => {
         if (!value) return false;
@@ -1557,7 +1609,67 @@ function addObjectKeyValuePair(path, prop, container) {
     if (valueInput.tagName.toLowerCase() !== 'select') {
         valueInput.placeholder = 'Value';
     }
-    itemDiv.appendChild(valueInput);
+
+    // Extract the actual input element if it's wrapped
+    const actualInput = valueInput.tagName.toLowerCase() === 'input' ? valueInput : valueInput.querySelector('input');
+
+    // Create value wrapper div
+    const valueWrapper = document.createElement('div');
+    valueWrapper.className = 'value-input-wrapper';
+
+    // Create warning icon for empty value
+    const emptyValueWarningIcon = document.createElement('span');
+    emptyValueWarningIcon.className = 'warning-icon empty-value-warning';
+    emptyValueWarningIcon.dataset.mode = 'null'; // Track current mode
+    emptyValueWarningIcon.innerHTML = `<?xml version="1.0" encoding="utf-8"?><svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M22 5C22 3.34315 20.6569 2 19 2H5C3.34315 2 2 3.34315 2 5V19C2 20.6569 3.34315 22 5 22H19C20.6569 22 22 20.6569 22 19V5ZM20 5C20 4.44772 19.5523 4 19 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H19C19.5523 20 20 19.5523 20 19V5Z" fill="currentColor"/></svg>`;
+    emptyValueWarningIcon.dataset.tooltip = '`null` Mode';
+    emptyValueWarningIcon.style.display = 'none';
+    emptyValueWarningIcon.style.cursor = 'pointer';
+
+    // Add click handler for the warning icon
+    emptyValueWarningIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentMode = emptyValueWarningIcon.dataset.mode;
+        const newMode = currentMode === 'null' ? 'empty' : 'null';
+        emptyValueWarningIcon.dataset.mode = newMode;
+        
+        if (newMode === 'empty') {
+            emptyValueWarningIcon.innerHTML = `<?xml version="1.0" encoding="utf-8"?><svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4C2 2.89543 2.89543 2 4 2H20C21.1046 2 22 2.89543 22 4V7C22 7.55229 21.5523 8 21 8C20.4477 8 20 7.55229 20 7V5C20 4.44772 19.5523 4 19 4H13V20H17C17.5523 20 18 20.4477 18 21C18 21.5523 17.5523 22 17 22H7C6.44772 22 6 21.5523 6 21C6 20.4477 6.44772 20 7 20H11V4H5C4.44772 4 4 4.44772 4 5V7C4 7.55229 3.55228 8 3 8C2.44772 8 2 7.55229 2 7V4Z" fill="currentColor"/></svg>`;
+            emptyValueWarningIcon.dataset.tooltip = 'Empty String Mode';
+        } else {
+            emptyValueWarningIcon.innerHTML = `<?xml version="1.0" encoding="utf-8"?><svg width="16px" height="16px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M22 5C22 3.34315 20.6569 2 19 2H5C3.34315 2 2 3.34315 2 5V19C2 20.6569 3.34315 22 5 22H19C20.6569 22 22 20.6569 22 19V5ZM20 5C20 4.44772 19.5523 4 19 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H19C19.5523 20 20 19.5523 20 19V5Z" fill="currentColor"/></svg>`;
+            emptyValueWarningIcon.dataset.tooltip = '`null` Mode';
+        }
+        updateYamlFromForm();
+    });
+
+    // Add input handler for value field
+    const updateWarningVisibility = () => {
+        const value = actualInput.value || '';
+        const isEmpty = !value.trim();
+        emptyValueWarningIcon.style.display = isEmpty ? 'block' : 'none';
+        actualInput.classList.toggle('warning', isEmpty);
+    };
+
+    actualInput.addEventListener('input', () => {
+        updateWarningVisibility();
+        updateYamlFromForm();
+    });
+
+    // Initial visibility check
+    updateWarningVisibility();
+
+    // Append elements to wrapper
+    if (valueInput.tagName.toLowerCase() === 'div') {
+        // If valueInput is already a wrapper (from createInput), move its contents
+        while (valueInput.firstChild) {
+            valueWrapper.appendChild(valueInput.firstChild);
+        }
+    } else {
+        valueWrapper.appendChild(valueInput);
+    }
+    valueWrapper.appendChild(emptyValueWarningIcon);
+    itemDiv.appendChild(valueWrapper);  // Add this line back
     
     // Create controls
     const controls = document.createElement('div');
@@ -1588,35 +1700,70 @@ function addObjectKeyValuePair(path, prop, container) {
     
     updateObjectItemControls(container);
     
-    // Update styles to include error icon and input styles
+    // Update styles to include warning icon and input styles
     if (!document.getElementById('warning-icon-styles')) {
         const styles = document.createElement('style');
         styles.id = 'warning-icon-styles';
         styles.textContent = `
-            .key-input-wrapper {
+            .key-input-wrapper, .value-input-wrapper {
                 position: relative;
                 display: inline-flex;
                 align-items: center;
-            }
-            .key-input {
                 width: 100%;
             }
+            .key-input, .value-input-wrapper input {
+                width: 100%;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            }
             .key-input.error {
-                border-color: #dc3545;
+                border-color: var(--danger-color);
                 background-color: #fff8f8;
+            }
+            .key-input.error:focus {
+                border-color: var(--danger-color);
+                box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+            }
+            .value-input-wrapper input.warning {
+                border-color: var(--input-border);
+            }
+            .value-input-wrapper input.warning:focus {
+                border-color: var(--input-focus-border);
+                box-shadow: 0 0 0 3px var(--input-focus-shadow);
+            }
+            .key-input-wrapper:has(.warning-icon[style*="display: block"]) .key-input {
+                border-color: var(--warning-color);
+            }
+            .key-input-wrapper:has(.warning-icon[style*="display: block"]) .key-input:focus {
+                border-color: var(--warning-color);
+                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+            }
+            .key-input-wrapper:has(.error-icon[style*="display: block"]) .key-input {
+                border-color: var(--danger-color);
+            }
+            .key-input-wrapper:has(.error-icon[style*="display: block"]) .key-input:focus {
+                border-color: var(--danger-color);
+                box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
             }
             .warning-icon, .error-icon {
                 position: absolute;
                 right: 8px;
                 cursor: help;
-                font-size: 14px;
+                width: 16px;
+                height: 16px;
                 display: none;
             }
+            .warning-icon svg, .error-icon svg {
+                width: 100%;
+                height: 100%;
+            }
             .warning-icon {
-                color: #f0ad4e;
+                color: var(--warning-color);
+            }
+            .warning-icon.empty-value-warning {
+                color: var(--input-border);
             }
             .error-icon {
-                color: #dc3545;
+                color: var(--danger-color);
             }
             .warning-icon:hover::after,
             .error-icon:hover::after {
@@ -1659,13 +1806,18 @@ function updateObjectItemTitles(container) {
 }
 
 function toggleOverride(path, label) {
+    const pinIcon = document.querySelector(`[data-path="${path}"]`).parentElement.querySelector('.pin-icon');
+    
     if (overriddenFields.has(path)) {
         overriddenFields.delete(path);
         label.classList.remove('overridden');
+        pinIcon.classList.remove('visible');
     } else {
         overriddenFields.add(path);
         label.classList.add('overridden');
+        pinIcon.classList.add('visible');
     }
+    
     if (!isUpdatingForm) {
         updateYamlFromForm();
     }
