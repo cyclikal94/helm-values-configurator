@@ -835,4 +835,86 @@ input[type="checkbox"]:focus {
 
 .section-content .section-title:hover::after {
     opacity: 0.7;
+}
+
+/* YAML error and lint marker styles */
+.yaml-error {
+    background-color: rgba(255, 0, 0, 0.1);
+    border-bottom: 2px wavy #dc3545;
+}
+.yaml-error-message {
+    color: #dc3545;
+    padding: 8px;
+    margin: 8px 0;
+    background-color: rgba(220, 53, 69, 0.1);
+    border-radius: 4px;
+    font-family: monospace;
+}
+.CodeMirror-lint-marker-error {
+    width: 16px;
+    height: 16px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23dc3545'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E") center center no-repeat;
+    background-size: contain;
+    margin-left: 5px;
+}
+.CodeMirror-lint-message-error {
+    padding-left: 20px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23dc3545'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E") left top no-repeat;
+    background-size: 16px;
+}
+
+/* Warning icon and key input styles */
+.key-input-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.key-input {
+    width: 100%;
+}
+.key-input.error {
+    border-color: #dc3545;
+    background-color: #fff8f8;
+}
+.warning-icon, .error-icon {
+    position: absolute;
+    right: 8px;
+    cursor: help;
+    font-size: 14px;
+    display: none;
+}
+.warning-icon {
+    color: #f0ad4e;
+}
+.error-icon {
+    color: #dc3545;
+}
+
+/* Tooltip styles for warning and error icons */
+.warning-icon:hover::after,
+.error-icon:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    background: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 5px;
+}
+.warning-icon:hover::before,
+.error-icon:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #333;
+    margin-bottom: -5px;
 } 
