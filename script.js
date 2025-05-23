@@ -4,6 +4,7 @@ let isUpdatingYaml = false;
 let isUpdatingForm = false;
 let isUpdatingArrays = false;
 let defaultValues = null;
+let overriddenFields = new Set();
 
 // Load default values from values.yaml
 fetch('values.yaml')
@@ -327,13 +328,15 @@ function getFormValues() {
             value = element.value || undefined;
         }
         
-        if (value === undefined) return;
-        
-        // Check if the value matches its default
-        const defaultValue = getDefaultValue(path);
-        if (defaultValue !== undefined && value === defaultValue) {
-            return; // Skip this value as it matches the default
+        // Include value if it's overridden, even if it matches default
+        if (value === undefined && overriddenFields.has(path)) {
+            const defaultValue = getDefaultValue(path);
+            if (defaultValue !== undefined) {
+                value = defaultValue;
+            }
         }
+        
+        if (value === undefined && !overriddenFields.has(path)) return;
         
         // Process the path parts to build the values object
         let current = values;
@@ -392,6 +395,11 @@ function getFormValues() {
                     if (!current[part]) current[part] = {};
                     current = current[part];
                 } else {
+                    // Check if we should include this value
+                    const defaultValue = getDefaultValue(path);
+                    if (value === defaultValue && !overriddenFields.has(path)) {
+                        return;
+                    }
                     current[part] = value;
                 }
             }
@@ -630,18 +638,44 @@ function generateForm(schema, container, path = '') {
                 label.className = 'section-title';
                 label.style.margin = '0';
                 label.textContent = formatLabel(key);
+                
+                // Add click handler for override
+                const fieldPath = path ? `${path}.${key}` : key;
+                label.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleOverride(fieldPath, label);
+                });
+                
+                // Set initial override state
+                if (overriddenFields.has(fieldPath)) {
+                    label.classList.add('overridden');
+                }
+                
                 content.appendChild(label);
                 
-                const input = createInput(prop, path ? `${path}.${key}` : key);
+                const input = createInput(prop, fieldPath);
                 content.appendChild(input);
             } else {
                 // Standard handling for other input types
                 const label = document.createElement('div');
                 label.className = 'section-title';
                 label.textContent = formatLabel(key);
+                
+                // Add click handler for override
+                const fieldPath = path ? `${path}.${key}` : key;
+                label.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleOverride(fieldPath, label);
+                });
+                
+                // Set initial override state
+                if (overriddenFields.has(fieldPath)) {
+                    label.classList.add('overridden');
+                }
+                
                 content.appendChild(label);
                 
-                const input = createInput(prop, path ? `${path}.${key}` : key);
+                const input = createInput(prop, fieldPath);
                 content.appendChild(input);
             }
             
@@ -1055,6 +1089,11 @@ document.getElementById('download-btn').addEventListener('click', () => {
 
 document.getElementById('reset-btn').addEventListener('click', () => {
     showConfirmationDialog('Are you sure you want to reset all values to their defaults?', () => {
+        overriddenFields.clear();
+        document.querySelectorAll('.section-title').forEach(title => {
+            title.classList.remove('overridden');
+        });
+        
         document.querySelectorAll('input, select').forEach(element => {
             if (element.type === 'checkbox') {
                 element.checked = false;
@@ -1617,4 +1656,17 @@ function updateObjectItemTitles(container) {
         const keyInput = item.querySelector('input[data-path$="[key]"]');
         title.textContent = keyInput && keyInput.value ? keyInput.value : `Key/Value Pair ${index + 1}`;
     });
+}
+
+function toggleOverride(path, label) {
+    if (overriddenFields.has(path)) {
+        overriddenFields.delete(path);
+        label.classList.remove('overridden');
+    } else {
+        overriddenFields.add(path);
+        label.classList.add('overridden');
+    }
+    if (!isUpdatingForm) {
+        updateYamlFromForm();
+    }
 } 
