@@ -894,7 +894,7 @@ function addArrayItem(path, itemSchema, container, itemType) {
     itemDiv.appendChild(header);
     
     const content = document.createElement('div');
-    content.className = 'array-item-content collapsed'; // Always start collapsed
+    content.className = 'array-item-content' + (isUpdatingArrays ? ' collapsed' : ''); // Only collapse if updating from YAML
     
     if (itemSchema.type === 'object') {
         generateForm(itemSchema, content, `${path}[]`);
