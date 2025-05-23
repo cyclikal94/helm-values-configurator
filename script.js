@@ -6,6 +6,19 @@ let isUpdatingArrays = false;
 let defaultValues = null;
 let overriddenFields = new Set();
 
+document.getElementById('download-btn').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([editor.getValue()], { type: 'text/yaml' }));
+    a.download = 'values.yaml';
+    a.click();
+});
+
+// Debounce the sort and control updates
+const debouncedSortAndUpdate = debounce((container) => {
+    sortObjectItems(container);
+    updateObjectItemControls(container);
+}, 300);
+
 // Load default values from values.yaml
 fetch('values.yaml')
     .then(response => response.text())
@@ -13,6 +26,17 @@ fetch('values.yaml')
         defaultValues = jsyaml.load(yaml);
     })
     .catch(error => console.error('Error loading default values:', error));
+
+// Update the schema loading to use the new setup
+fetch('values.schema.json')
+    .then(response => response.json())
+    .then(data => {
+        schema = data;
+        generateForm(schema, document.getElementById('form-container'));
+        initializeEditor();
+        setupFormChangeHandlers();
+    })
+    .catch(error => console.error('Error loading schema:', error));
 
 // Initialize CodeMirror editor
 function initializeEditor() {
@@ -491,17 +515,6 @@ function setupFormChangeHandlers() {
         }
     });
 }
-
-// Update the schema loading to use the new setup
-fetch('values.schema.json')
-    .then(response => response.json())
-    .then(data => {
-        schema = data;
-        generateForm(schema, document.getElementById('form-container'));
-        initializeEditor();
-        setupFormChangeHandlers();
-    })
-    .catch(error => console.error('Error loading schema:', error));
 
 function showConfirmationDialog(message, onConfirm) {
     const overlay = document.createElement('div');
@@ -1125,57 +1138,6 @@ function formatLabel(key) {
         .trim();
 }
 
-document.getElementById('download-btn').addEventListener('click', () => {
-    const yaml = editor.getValue();
-    const blob = new Blob([yaml], { type: 'text/yaml' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'values.yaml';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-});
-
-document.getElementById('reset-btn').addEventListener('click', () => {
-    showConfirmationDialog('Are you sure you want to reset all values to their defaults?', () => {
-        overriddenFields.clear();
-        document.querySelectorAll('.section-title').forEach(title => {
-            title.classList.remove('overridden');
-        });
-        
-        document.querySelectorAll('input, select').forEach(element => {
-            if (element.type === 'checkbox') {
-                element.checked = false;
-            } else {
-                element.value = '';
-            }
-        });
-        
-        document.querySelectorAll('.array-container').forEach(container => {
-            container.innerHTML = '';
-            const arraySection = container.closest('.array-section');
-            const removeAllButton = arraySection.querySelector('.array-btn.remove-all');
-            updateRemoveAllVisibility(container, removeAllButton);
-        });
-
-        document.querySelectorAll('.section-content:not(.collapsed)').forEach(section => {
-            section.classList.add('collapsed');
-            const header = section.previousElementSibling;
-            if (header) {
-                const toggleBtn = header.querySelector('.toggle-btn');
-                if (toggleBtn) {
-                    toggleBtn.classList.remove('expanded');
-                }
-            }
-        });
-
-        editor.setValue('');
-    });
-});
-
 function singularize(word) {
     // Basic singularization rules - extend as needed
     if (word.endsWith('ies')) {
@@ -1448,12 +1410,6 @@ function sortObjectItems(container, changedItem = null) {
         sortedItems.forEach(item => container.appendChild(item));
     }, 300);
 }
-
-// Debounce the sort and control updates
-const debouncedSortAndUpdate = debounce((container) => {
-    sortObjectItems(container);
-    updateObjectItemControls(container);
-}, 300);
 
 function smoothlyReorderKeyValueItems(container, movingItem, targetItem, direction) {
     // Get the positions and heights
