@@ -276,8 +276,15 @@ function updateYamlFromForm() {
     
     isUpdatingYaml = true;
     const values = getFormValues();
-    const yaml = jsyaml.dump(values, { indent: 2 });
-    editor.setValue(yaml);
+    
+    // Check if values object is empty
+    if (Object.keys(values).length === 0) {
+        editor.setValue('');
+    } else {
+        const yaml = jsyaml.dump(values, { indent: 2 });
+        editor.setValue(yaml);
+    }
+    
     isUpdatingYaml = false;
 }
 
@@ -289,11 +296,28 @@ function getFormValues() {
         const path = element.dataset.path;
         if (!path) return;
         
+        // Check if this input is within a disabled section
+        const parts = path.split('.');
+        let parentPath = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (i > 0) parentPath += '.';
+            parentPath += parts[i];
+            
+            // Skip array indices
+            if (parts[i].endsWith('[]')) continue;
+            
+            const enabledCheckbox = document.querySelector(`input[data-path="${parentPath}.enabled"]`);
+            if (enabledCheckbox && !enabledCheckbox.checked) {
+                // If any parent section is disabled, skip this value
+                // Unless it's the enabled property itself
+                if (!path.endsWith('.enabled')) {
+                    return;
+                }
+            }
+        }
+        
         let value;
         if (element.type === 'checkbox') {
-            if (path.endsWith('.enabled') && !element.checked) {
-                return;
-            }
             value = element.checked;
         } else if (element.type === 'number') {
             value = element.value ? Number(element.value) : undefined;
@@ -305,9 +329,14 @@ function getFormValues() {
         
         if (value === undefined) return;
         
-        const parts = path.split('.');
-        let current = values;
+        // Check if the value matches its default
+        const defaultValue = getDefaultValue(path);
+        if (defaultValue !== undefined && value === defaultValue) {
+            return; // Skip this value as it matches the default
+        }
         
+        // Process the path parts to build the values object
+        let current = values;
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             const isLast = i === parts.length - 1;
@@ -436,9 +465,15 @@ function showConfirmationDialog(message, onConfirm) {
     
     const dialog = document.createElement('div');
     dialog.className = 'confirmation-dialog';
+    dialog.style.position = 'fixed';
+    dialog.style.top = '50%';
+    dialog.style.left = '50%';
+    dialog.style.transform = 'translate(-50%, -50%)';
+    dialog.style.zIndex = '1000';
     
     const messageEl = document.createElement('div');
     messageEl.textContent = message;
+    messageEl.style.marginBottom = '0.5rem';
     dialog.appendChild(messageEl);
     
     const buttons = document.createElement('div');
@@ -464,6 +499,18 @@ function showConfirmationDialog(message, onConfirm) {
     dialog.appendChild(buttons);
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
+
+    // Focus the cancel button by default for better keyboard navigation
+    cancelBtn.focus();
+
+    // Handle Escape key to close dialog
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            document.body.removeChild(overlay);
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+    document.addEventListener('keydown', handleEscape);
 }
 
 // Add new function for creating array sections
@@ -573,13 +620,31 @@ function generateForm(schema, container, path = '') {
             const content = document.createElement('div');
             content.className = 'section-content';
             
-            const label = document.createElement('div');
-            label.className = 'section-title';
-            label.textContent = formatLabel(key);
-            content.appendChild(label);
+            if (prop.type === 'boolean') {
+                // Special handling for boolean/checkbox inputs
+                content.style.display = 'flex';
+                content.style.justifyContent = 'space-between';
+                content.style.alignItems = 'center';
+                
+                const label = document.createElement('div');
+                label.className = 'section-title';
+                label.style.margin = '0';
+                label.textContent = formatLabel(key);
+                content.appendChild(label);
+                
+                const input = createInput(prop, path ? `${path}.${key}` : key);
+                content.appendChild(input);
+            } else {
+                // Standard handling for other input types
+                const label = document.createElement('div');
+                label.className = 'section-title';
+                label.textContent = formatLabel(key);
+                content.appendChild(label);
+                
+                const input = createInput(prop, path ? `${path}.${key}` : key);
+                content.appendChild(input);
+            }
             
-            const input = createInput(prop, path ? `${path}.${key}` : key);
-            content.appendChild(input);
             valuesGroup.appendChild(content);
         });
         
@@ -613,22 +678,31 @@ function generateForm(schema, container, path = '') {
             const hasEnabled = prop.properties.hasOwnProperty('enabled');
             let enabledCheckbox = null;
 
+            // Create checkbox first if section has enabled property
             if (hasEnabled) {
                 enabledCheckbox = document.createElement('input');
                 enabledCheckbox.type = 'checkbox';
                 enabledCheckbox.id = `${currentPath}.enabled`;
                 enabledCheckbox.dataset.path = `${currentPath}.enabled`;
                 enabledCheckbox.className = 'section-enabled';
+                
+                // Set default value if it exists
+                const defaultValue = getDefaultValue(`${currentPath}.enabled`);
+                if (defaultValue !== undefined) {
+                    enabledCheckbox.checked = defaultValue;
+                }
+                
                 controls.appendChild(enabledCheckbox);
             }
 
+            // Create toggle button after checkbox
             const toggleBtn = document.createElement('button');
-            toggleBtn.textContent = '▶';
             toggleBtn.className = 'toggle-btn';
-            if (!hasEnabled) {
+            if (!hasEnabled || (hasEnabled && enabledCheckbox.checked)) {
                 toggleBtn.classList.add('visible');
             }
             controls.appendChild(toggleBtn);
+
             header.appendChild(controls);
             formGroup.appendChild(header);
 
@@ -647,12 +721,14 @@ function generateForm(schema, container, path = '') {
                 
                 if (!hasEnabled || (hasEnabled && enabledCheckbox.checked)) {
                     content.classList.toggle('collapsed');
-                    toggleBtn.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
+                    toggleBtn.classList.toggle('expanded');
                 } else if (!enabledCheckbox.checked) {
                     enabledCheckbox.checked = true;
                     toggleBtn.classList.add('visible');
                     content.classList.remove('collapsed');
-                    toggleBtn.textContent = '▼';
+                    toggleBtn.classList.add('expanded');
+                    // Update YAML when enabling via section click
+                    updateYamlFromForm();
                 }
             };
 
@@ -671,14 +747,13 @@ function generateForm(schema, container, path = '') {
                         showConfirmationDialog('Are you sure you want to disable this section? All values will be cleared.', () => {
                             toggleBtn.classList.toggle('visible', isEnabled);
                             content.classList.add('collapsed');
-                            toggleBtn.textContent = '▶';
-                            // TODO: Clear all values in this section
+                            toggleBtn.classList.remove('expanded');
                         });
                         e.preventDefault(); // Prevent immediate unchecking
                     } else {
                         toggleBtn.classList.toggle('visible', isEnabled);
                         content.classList.remove('collapsed');
-                        toggleBtn.textContent = '▼';
+                        toggleBtn.classList.add('expanded');
                     }
                 });
             }
@@ -708,6 +783,17 @@ function getDefaultValue(path) {
             current = current[part];
         } else {
             return undefined;
+        }
+    }
+    
+    // Handle type coercion for proper comparison
+    if (current !== undefined && current !== null) {
+        if (typeof current === 'string' && !isNaN(current)) {
+            // Convert numeric strings to numbers
+            return Number(current);
+        } else if (typeof current === 'boolean') {
+            // Ensure booleans stay as booleans
+            return Boolean(current);
         }
     }
     
@@ -968,7 +1054,7 @@ document.getElementById('download-btn').addEventListener('click', () => {
 });
 
 document.getElementById('reset-btn').addEventListener('click', () => {
-    showConfirmationDialog('Are you sure you want to reset the form? All values will be cleared.', () => {
+    showConfirmationDialog('Are you sure you want to reset all values to their defaults?', () => {
         document.querySelectorAll('input, select').forEach(element => {
             if (element.type === 'checkbox') {
                 element.checked = false;
@@ -990,7 +1076,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
             if (header) {
                 const toggleBtn = header.querySelector('.toggle-btn');
                 if (toggleBtn) {
-                    toggleBtn.textContent = '▶';
+                    toggleBtn.classList.remove('expanded');
                 }
             }
         });
