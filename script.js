@@ -219,6 +219,9 @@ function updateFormFromYaml(values, parentPath = '') {
                         });
                     }
                     
+                    // Update array item titles after all items are added
+                    updateArrayItemTitles(container, singularize(formatLabel(key)));
+                    
                     isUpdatingArrays = false;
                 }
             }
@@ -891,7 +894,7 @@ function addArrayItem(path, itemSchema, container, itemType) {
     itemDiv.appendChild(header);
     
     const content = document.createElement('div');
-    content.className = 'array-item-content';
+    content.className = 'array-item-content collapsed'; // Always start collapsed
     
     if (itemSchema.type === 'object') {
         generateForm(itemSchema, content, `${path}[]`);
@@ -938,7 +941,7 @@ function addArrayItem(path, itemSchema, container, itemType) {
 function updateArrayItemTitles(container, itemType) {
     Array.from(container.children).forEach((item, index) => {
         const title = item.querySelector('.array-item-header .array-item-title');
-        const nameInput = item.querySelector('input[data-path$="name"]');
+        const nameInput = item.querySelector('input[data-path$=".name"]');
         title.textContent = nameInput && nameInput.value ? nameInput.value : `${itemType} ${index + 1}`;
     });
 }
