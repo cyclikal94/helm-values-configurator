@@ -256,16 +256,40 @@ h1 {
     font-size: 0.875rem;
     padding: 0.25rem;
     transition: all 0.3s ease-out;
-    display: none; /* Hidden by default */
+    display: none;
+    width: 24px;
+    height: 24px;
+    position: relative;
+}
+
+.toggle-btn::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translate(-75%, -50%) rotate(-45deg);
+    transition: transform 0.2s ease;
 }
 
 .toggle-btn.visible {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.section-content.collapsed + * .toggle-btn::before,
+.section-content.collapsed ~ .toggle-btn::before,
+.toggle-btn.collapsed::before {
+    transform: translate(-50%, -75%) rotate(45deg);
 }
 
 .toggle-btn:hover {
-    background: none;
-    color: #1976d2;
+    background: rgba(33, 150, 243, 0.1);
+    border-radius: 4px;
 }
 
 /* Input styles */
@@ -668,4 +692,147 @@ input[type="number"]::-webkit-outer-spin-button {
     height: 24px;
     position: relative;
     right: 4px;
+}
+
+/* Custom Checkbox Styling */
+input[type="checkbox"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    margin: 0;
+    background: white;
+    transition: border-color 0.15s ease;
+    vertical-align: middle;
+}
+
+input[type="checkbox"]:hover {
+    border-color: #999;
+}
+
+input[type="checkbox"]:checked {
+    background-color: white;
+    border-color: var(--primary-color);
+}
+
+input[type="checkbox"]:checked::before {
+    content: '✓';
+    position: absolute;
+    left: 3px;
+    top: -1px;
+    color: var(--primary-color);
+    font-size: 14px;
+}
+
+input[type="checkbox"]:disabled {
+    background-color: #f5f5f5;
+    border-color: #ddd;
+    cursor: not-allowed;
+}
+
+input[type="checkbox"]:disabled:checked::before {
+    color: #999;
+}
+
+/* Special styling for section enabled checkboxes */
+input[type="checkbox"].section-enabled {
+    width: 20px;
+    height: 20px;
+}
+
+input[type="checkbox"].section-enabled:checked::before {
+    font-size: 16px;
+    left: 3px;
+    top: -2px;
+}
+
+/* Add focus styles for accessibility */
+input[type="checkbox"]:focus {
+    border-color: var(--primary-color);
+}
+
+/* Checkbox section styling */
+.section-content.checkbox-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: space-between;
+}
+
+.section-content.checkbox-section .section-title {
+    margin: 0;
+    order: 1;
+}
+
+.section-content.checkbox-section input[type="checkbox"] {
+    order: 2;
+}
+
+/* Keep other section content types unchanged */
+.section-content:not(.checkbox-section) {
+    display: block;
+}
+
+/* Reset button styling */
+.reset-value-btn {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-left: 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    display: none;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.reset-value-btn:hover {
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.reset-value-btn.visible {
+    display: inline-flex;
+}
+
+/* Wrapper for select and reset button */
+.select-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.select-wrapper select {
+    flex: 1;
+}
+
+/* Clickable value titles */
+.section-content .section-title {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-content .section-title:hover {
+    color: var(--primary-color);
+}
+
+/* Indicator for forced values */
+.section-content .section-title.force-included::after {
+    content: '★';
+    font-size: 12px;
+    color: var(--primary-color);
+}
+
+.section-content .section-title:hover::after {
+    opacity: 0.7;
 } 

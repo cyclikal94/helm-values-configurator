@@ -303,130 +303,77 @@ function updateYamlFromForm() {
     
     isUpdatingYaml = true;
     const values = getFormValues();
-    const yaml = jsyaml.dump(values, { indent: 2 });
-    editor.setValue(yaml);
+    
+    // Check if values is an empty object
+    if (Object.keys(values).length === 0) {
+        editor.setValue('');  // Set to empty string instead of '{}'
+    } else {
+        const yaml = jsyaml.dump(values, { indent: 2 });
+        editor.setValue(yaml);
+    }
+    
     isUpdatingYaml = false;
 }
 
 // Update getFormValues to properly handle object fields
 function getFormValues() {
     const values = {};
+    const inputs = document.querySelectorAll('#form-container input, #form-container select');
     
-    function processInput(element) {
-        const path = element.dataset.path;
+    inputs.forEach(input => {
+        const path = input.getAttribute('data-path');
         if (!path) return;
         
-        let value;
-        if (element.type === 'checkbox') {
-            if (path.endsWith('.enabled') && !element.checked) {
-                return;
-            }
-            value = element.checked;
-        } else if (element.type === 'number') {
-            value = element.value ? Number(element.value) : undefined;
-        } else if (element.tagName.toLowerCase() === 'select') {
-            value = element.value || undefined;
-        } else {
-            value = element.value || undefined;
+        let value = input.type === 'checkbox' ? input.checked : input.value;
+        
+        // Convert numeric strings to numbers
+        if (input.type === 'number' && value !== '') {
+            value = Number(value);
         }
         
-        if (value === undefined) return;
+        // Skip empty values
+        if (value === '' || value === null || value === undefined) return;
         
-        const parts = path.split('.');
-        let current = values;
+        // Get the default value for this path
+        const defaultValue = getDefaultValueForPath(path);
         
-        for (let i = 0; i < parts.length; i++) {
-            const part = parts[i];
-            const isLast = i === parts.length - 1;
-            
-            if (part.endsWith('[]')) {
-                const arrayKey = part.slice(0, -2);
-                if (!current[arrayKey]) current[arrayKey] = [];
-                
-                const arrayItem = element.closest('.array-item');
-                if (!arrayItem) continue;
-                
-                const arrayContainer = arrayItem.parentNode;
-                const index = Array.from(arrayContainer.children)
-                    .filter(el => el.classList.contains('array-item'))
-                    .indexOf(arrayItem);
-                
-                if (isLast) {
-                    current[arrayKey][index] = value;
-                } else {
-                    if (!current[arrayKey][index]) current[arrayKey][index] = {};
-                    current = current[arrayKey][index];
-                }
-            } else if (part.includes('[')) {
-                // Handle object key-value pairs
-                const objectKey = part.split('[')[0];
-                const isKey = part.endsWith('[key]');
-                const isValue = part.endsWith('[value]');
-                
-                if (!current[objectKey]) current[objectKey] = {};
-                
-                if (isKey) {
-                    // Store the key temporarily
-                    const itemDiv = element.closest('.key-value-item');
-                    if (itemDiv) {
-                        const valueInput = itemDiv.querySelector(`[data-path$="[value]"]`);
-                        if (valueInput && element.value) {
-                            let valueToSet;
-                            if (valueInput.type === 'checkbox') {
-                                valueToSet = valueInput.checked;
-                            } else if (valueInput.type === 'number') {
-                                valueToSet = valueInput.value ? Number(valueInput.value) : null;
-                            } else {
-                                valueToSet = valueInput.value || null;
-                            }
-                            current[objectKey][element.value] = valueToSet;
-                        }
-                    }
-                }
-                // Skip value processing as it's handled with the key
-                return;
+        // Include the value if it's different from default or forced to be included
+        if (input.dataset.forceInclude === 'true' || defaultValue === undefined || value !== defaultValue) {
+            // Handle array items
+            if (path.includes('[]')) {
+                const arrayPath = path.split('[]')[0];
+                const arrayValues = getArrayValues(document.getElementById(`${arrayPath}-container`), arrayPath);
+                setValueAtPath(values, arrayPath, arrayValues);
             } else {
-                if (!isLast) {
-                    if (!current[part]) current[part] = {};
-                    current = current[part];
-                } else {
-                    current[part] = value;
-                }
+                setValueAtPath(values, path, value);
             }
         }
-    }
+    });
     
-    document.querySelectorAll('input, select').forEach(processInput);
+    return values;
+}
+
+// Helper function to get default value for a path
+function getDefaultValueForPath(path) {
+    if (!defaultValues) return undefined;
     
-    // Clean up empty objects and arrays
-    function cleanupEmptyObjects(obj) {
-        if (typeof obj !== 'object' || obj === null) return obj;
+    const parts = path.split('.');
+    let current = defaultValues;
+    
+    for (const part of parts) {
+        if (current === undefined || current === null) return undefined;
         
-        if (Array.isArray(obj)) {
-            const cleanArray = obj.map(item => cleanupEmptyObjects(item))
-                .filter(item => {
-                    if (item === undefined) return false;
-                    if (typeof item === 'object' && Object.keys(item).length === 0) return false;
-                    return true;
-                });
-            return cleanArray.length ? cleanArray : undefined;
+        // Handle array indices
+        if (part.includes('[')) {
+            const arrayPath = part.split('[')[0];
+            current = current[arrayPath];
+            continue;
         }
         
-        const cleaned = {};
-        let hasValues = false;
-        
-        for (const [key, value] of Object.entries(obj)) {
-            const cleanValue = cleanupEmptyObjects(value);
-            if (cleanValue !== undefined) {
-                cleaned[key] = cleanValue;
-                hasValues = true;
-            }
-        }
-        
-        return hasValues ? cleaned : undefined;
+        current = current[part];
     }
     
-    return cleanupEmptyObjects(values) || {};
+    return current;
 }
 
 // Remove the global input event listener and update the form change handling
@@ -602,11 +549,49 @@ function generateForm(schema, container, path = '') {
         
         values.forEach(([key, prop]) => {
             const content = document.createElement('div');
-            content.className = 'section-content';
+            content.className = prop.type === 'boolean' ? 'section-content checkbox-section' : 'section-content';
             
             const label = document.createElement('div');
             label.className = 'section-title';
             label.textContent = formatLabel(key);
+            
+            // Add click handler to force include value
+            if (prop.type !== 'boolean') {  // Don't add for checkboxes
+                label.addEventListener('click', () => {
+                    const input = content.querySelector('input, select');
+                    if (!input) return;
+                    
+                    const currentlyForced = input.dataset.forceInclude === 'true';
+                    const newForceState = !currentlyForced;
+                    input.dataset.forceInclude = newForceState.toString();
+                    label.classList.toggle('force-included', newForceState);
+                    
+                    // If forcing and no value is set, use the default value
+                    if (newForceState) {
+                        const defaultValue = getDefaultValue(input.dataset.path);
+                        const currentValue = input.type === 'checkbox' ? input.checked : input.value;
+                        
+                        if ((currentValue === '' || currentValue === null || currentValue === undefined) && defaultValue !== undefined) {
+                            if (input.type === 'checkbox') {
+                                input.checked = defaultValue;
+                            } else {
+                                input.value = defaultValue;
+                            }
+                        }
+                    }
+                    
+                    // Show/hide reset button if it exists
+                    const resetBtn = content.querySelector('.reset-value-btn');
+                    if (resetBtn) {
+                        resetBtn.classList.toggle('visible', newForceState);
+                    }
+                    
+                    if (!isUpdatingForm) {
+                        updateYamlFromForm();
+                    }
+                });
+            }
+            
             content.appendChild(label);
             
             const input = createInput(prop, path ? `${path}.${key}` : key);
@@ -644,26 +629,39 @@ function generateForm(schema, container, path = '') {
             const hasEnabled = prop.properties.hasOwnProperty('enabled');
             let enabledCheckbox = null;
 
+            // Create toggle button first
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';  // Explicitly set type to prevent form submission
+            toggleBtn.className = 'toggle-btn collapsed';
+            if (!hasEnabled) {
+                toggleBtn.classList.add('visible');
+            }
+            controls.appendChild(toggleBtn);
+
             if (hasEnabled) {
                 enabledCheckbox = document.createElement('input');
                 enabledCheckbox.type = 'checkbox';
                 enabledCheckbox.id = `${currentPath}.enabled`;
                 enabledCheckbox.dataset.path = `${currentPath}.enabled`;
                 enabledCheckbox.className = 'section-enabled';
-                controls.appendChild(enabledCheckbox);
+                
+                // Check for default value in values.yaml
+                const defaultValue = getDefaultValue(`${currentPath}.enabled`);
+                if (defaultValue !== undefined) {
+                    enabledCheckbox.checked = defaultValue;
+                    if (defaultValue) {
+                        // Even if enabled by default, keep collapsed but show toggle
+                        toggleBtn.classList.add('visible');
+                    }
+                }
+                
+                controls.insertBefore(enabledCheckbox, toggleBtn);
             }
 
-            const toggleBtn = document.createElement('button');
-            toggleBtn.textContent = '▶';
-            toggleBtn.className = 'toggle-btn';
-            if (!hasEnabled) {
-                toggleBtn.classList.add('visible');
-            }
-            controls.appendChild(toggleBtn);
             header.appendChild(controls);
             formGroup.appendChild(header);
 
-            // Create content section
+            // Create content section - always start collapsed
             const content = document.createElement('div');
             content.className = 'section-content collapsed';
             
@@ -678,12 +676,16 @@ function generateForm(schema, container, path = '') {
                 
                 if (!hasEnabled || (hasEnabled && enabledCheckbox.checked)) {
                     content.classList.toggle('collapsed');
-                    toggleBtn.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
+                    toggleBtn.classList.toggle('collapsed', content.classList.contains('collapsed'));
                 } else if (!enabledCheckbox.checked) {
                     enabledCheckbox.checked = true;
                     toggleBtn.classList.add('visible');
                     content.classList.remove('collapsed');
-                    toggleBtn.textContent = '▼';
+                    toggleBtn.classList.remove('collapsed');
+                    // Update YAML when we auto-check the enabled checkbox
+                    if (!isUpdatingForm) {
+                        updateYamlFromForm();
+                    }
                 }
             };
 
@@ -702,14 +704,14 @@ function generateForm(schema, container, path = '') {
                         showConfirmationDialog('Are you sure you want to disable this section? All values will be cleared.', () => {
                             toggleBtn.classList.toggle('visible', isEnabled);
                             content.classList.add('collapsed');
-                            toggleBtn.textContent = '▶';
+                            toggleBtn.classList.remove('collapsed');
                             // TODO: Clear all values in this section
                         });
                         e.preventDefault(); // Prevent immediate unchecking
                     } else {
                         toggleBtn.classList.toggle('visible', isEnabled);
                         content.classList.remove('collapsed');
-                        toggleBtn.textContent = '▼';
+                        toggleBtn.classList.remove('collapsed');
                     }
                 });
             }
@@ -758,14 +760,19 @@ function createInput(prop, path) {
         }
         return input;
     } else if (prop.enum) {
+        // Create wrapper for select and reset button
+        const wrapper = document.createElement('div');
+        wrapper.className = 'select-wrapper';
+        
         const select = document.createElement('select');
         select.id = path;
         select.dataset.path = path;
         
-        // Add an empty option first
+        // Add a hidden empty option
         const emptyOption = document.createElement('option');
         emptyOption.value = '';
-        emptyOption.textContent = '-- Select --';
+        emptyOption.hidden = true;
+        emptyOption.disabled = false;
         select.appendChild(emptyOption);
         
         prop.enum.forEach(value => {
@@ -778,7 +785,46 @@ function createInput(prop, path) {
             select.appendChild(option);
         });
         
-        return select;
+        // Create reset button
+        const resetBtn = document.createElement('button');
+        resetBtn.type = 'button';
+        resetBtn.className = 'reset-value-btn';
+        resetBtn.innerHTML = '↺';
+        resetBtn.title = 'Remove from YAML';
+        
+        // Store initial value
+        const initialValue = defaultValue !== undefined ? defaultValue : '';
+        select.dataset.initialValue = initialValue;
+        
+        // Add change handler to show/hide reset button
+        select.addEventListener('change', () => {
+            const currentValue = select.value;
+            const showReset = currentValue !== initialValue || select.dataset.forceInclude === 'true';
+            resetBtn.classList.toggle('visible', showReset);
+            
+            if (!isUpdatingForm) {
+                updateYamlFromForm();
+            }
+        });
+        
+        // Add reset handler
+        resetBtn.addEventListener('click', () => {
+            select.value = initialValue;
+            select.dataset.forceInclude = 'false';
+            resetBtn.classList.remove('visible');
+            // Find and update the title's force-included state
+            const title = select.closest('.section-content')?.querySelector('.section-title');
+            if (title) {
+                title.classList.remove('force-included');
+            }
+            if (!isUpdatingForm) {
+                updateYamlFromForm();
+            }
+        });
+        
+        wrapper.appendChild(select);
+        wrapper.appendChild(resetBtn);
+        return wrapper;
     } else {
         const input = document.createElement('input');
         input.type = prop.type === 'integer' || prop.type === 'number' ? 'number' : 'text';
@@ -1050,43 +1096,64 @@ function updateRemoveAllVisibility(container, removeAllButton) {
 
 // Update getArrayValues to only include non-empty items
 function getArrayValues(container, path) {
+    if (!container) return [];
+    
     const values = [];
-    container.querySelectorAll('.array-item').forEach(item => {
-        if (item.querySelector(`input[data-path^="${path}[]"], select[data-path^="${path}[]"]`)) {
-            const itemValues = {};
-            let hasValue = false;
+    const items = Array.from(container.children);
+    
+    items.forEach(item => {
+        const inputs = item.querySelectorAll('input, select');
+        if (!inputs.length) return;
+        
+        // For simple arrays with single values
+        if (inputs.length === 1) {
+            const input = inputs[0];
+            let value = input.type === 'checkbox' ? input.checked : input.value;
+            if (input.type === 'number' && value !== '') {
+                value = Number(value);
+            }
+            if (value !== '' && value !== null && value !== undefined) {
+                values.push(value);
+            }
+            return;
+        }
+        
+        // For arrays of objects
+        const itemValue = {};
+        let hasValue = false;
+        
+        inputs.forEach(input => {
+            const inputPath = input.getAttribute('data-path');
+            if (!inputPath) return;
             
-            item.querySelectorAll('input, select').forEach(input => {
-                const inputPath = input.dataset.path;
-                if (inputPath && inputPath.startsWith(`${path}[]`)) {
-                    const key = inputPath.replace(`${path}[].`, '').replace(`${path}[]`, '');
-                    let value;
-                    
-                    if (input.type === 'checkbox') {
-                        value = input.checked;
-                    } else if (input.tagName.toLowerCase() === 'select') {
-                        value = input.value || undefined;
-                    } else {
-                        value = input.value || undefined;
-                    }
-                    
-                    if (value !== undefined) {
-                        hasValue = true;
-                        if (key) {
-                            itemValues[key] = value;
-                        } else {
-                            values.push(value);
-                            return; // Exit early for primitive array items
-                        }
-                    }
-                }
-            });
+            const key = inputPath.split('[]')[1]?.split('.')[1];
+            if (!key) return;
             
-            if (hasValue && Object.keys(itemValues).length > 0) {
-                values.push(itemValues);
+            let value = input.type === 'checkbox' ? input.checked : input.value;
+            if (input.type === 'number' && value !== '') {
+                value = Number(value);
+            }
+            
+            if (value !== '' && value !== null && value !== undefined) {
+                itemValue[key] = value;
+                hasValue = true;
+            }
+        });
+        
+        if (hasValue) {
+            // Check if this object matches a default value
+            const defaultArray = getDefaultValueForPath(path);
+            if (!defaultArray || !Array.isArray(defaultArray) || 
+                !defaultArray.some(defaultItem => 
+                    Object.keys(itemValue).every(key => 
+                        defaultItem[key] === itemValue[key]
+                    )
+                )) {
+                values.push(itemValue);
             }
         }
     });
+    
     return values;
 }
 
@@ -1571,4 +1638,58 @@ function updateObjectItemTitles(container) {
         const keyInput = item.querySelector('input[data-path$="[key]"]');
         title.textContent = keyInput && keyInput.value ? keyInput.value : `Key/Value Pair ${index + 1}`;
     });
+}
+
+// Helper function to set a value at a specific path in an object
+function setValueAtPath(obj, path, value) {
+    const parts = path.split('.');
+    let current = obj;
+    
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = i === parts.length - 1;
+        
+        if (part.includes('[')) {
+            // Handle object key-value pairs
+            const objectKey = part.split('[')[0];
+            const isKey = part.endsWith('[key]');
+            const isValue = part.endsWith('[value]');
+            
+            if (!current[objectKey]) current[objectKey] = {};
+            
+            if (isKey) {
+                // Store the key temporarily
+                const itemDiv = document.querySelector(`[data-path="${path}"]`).closest('.key-value-item');
+                if (itemDiv) {
+                    const valueInput = itemDiv.querySelector(`[data-path$="[value]"]`);
+                    if (valueInput && value) {
+                        let valueToSet;
+                        if (valueInput.type === 'checkbox') {
+                            valueToSet = valueInput.checked;
+                        } else if (valueInput.type === 'number') {
+                            valueToSet = valueInput.value ? Number(valueInput.value) : null;
+                        } else {
+                            valueToSet = valueInput.value || null;
+                        }
+                        
+                        // Check if this key-value pair exists in defaults
+                        const defaultObj = getDefaultValueForPath(objectKey);
+                        if (defaultObj && defaultObj[value] === valueToSet) {
+                            return; // Skip if matches default
+                        }
+                        
+                        current[objectKey][value] = valueToSet;
+                    }
+                }
+            }
+            return; // Skip value processing as it's handled with the key
+        } else {
+            if (!isLast) {
+                if (!current[part]) current[part] = {};
+                current = current[part];
+            } else {
+                current[part] = value;
+            }
+        }
+    }
 } 
