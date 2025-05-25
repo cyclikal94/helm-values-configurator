@@ -1,10 +1,10 @@
 .CodeMirror {
-    height: 500px;
     border: 1px solid #ddd;
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
     line-height: 1.6;
-    border-radius: 4px;
+    border-radius: 10px;
+    height: 100%;
 }
 
 .CodeMirror-focused {
@@ -82,3 +82,26 @@
 .yaml-editor {
     position: relative;
 } 
+
+/* Download button */
+#download-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #e3f2fd;
+    color: #1565c0;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#download-btn:hover {
+    background-color: #bbdefb;
+}
+
+#download-btn svg {
+    flex-shrink: 0;
+}
