@@ -1,0 +1,84 @@
+.CodeMirror {
+    height: 500px;
+    border: 1px solid #ddd;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    border-radius: 4px;
+}
+
+.CodeMirror-focused {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.yaml-error-message {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #fff2f2;
+    border: 1px solid #ffcdd2;
+    border-radius: 4px;
+    color: #d32f2f;
+    font-size: 14px;
+}
+
+.yaml-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.yaml-status.valid {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.yaml-status.invalid {
+    background-color: #fff2f2;
+    color: #d32f2f;
+}
+
+.status-icon {
+    font-weight: bold;
+}
+
+/* Custom scrollbar for CodeMirror */
+.CodeMirror-scrollbar-filler {
+    background-color: transparent;
+}
+
+.CodeMirror-simplescroll-horizontal,
+.CodeMirror-simplescroll-vertical {
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+.CodeMirror-simplescroll-horizontal div,
+.CodeMirror-simplescroll-vertical div {
+    background-color: #ccc;
+    border-radius: 4px;
+}
+
+/* Syntax highlighting colors */
+.cm-s-monokai .cm-string {
+    color: #a6e22e;
+}
+
+.cm-s-monokai .cm-number {
+    color: #ae81ff;
+}
+
+.cm-s-monokai .cm-atom {
+    color: #66d9ef;
+}
+
+.cm-s-monokai .cm-comment {
+    color: #75715e;
+}
+
+.yaml-editor {
+    position: relative;
+} 

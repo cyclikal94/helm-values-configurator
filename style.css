@@ -737,14 +737,6 @@ button:hover {
     background-color: var(--primary-hover-color);
 }
 
-#reset-btn {
-    background-color: var(--danger-color);
-}
-
-#reset-btn:hover {
-    background-color: var(--danger-hover-color);
-}
-
 /* Improve animation performance */
 .section-content, .array-item-content {
     will-change: max-height, opacity, padding;
@@ -754,23 +746,6 @@ button:hover {
 .section-header, .array-item-header {
     will-change: background-color;
     transform: translateZ(0);
-}
-
-/* Add fade effect at the bottom of the page */
-.container::after {
-    content: '';
-    position: fixed;
-    bottom: 4rem;
-    left: 0;
-    right: 0;
-    height: 2rem;
-    background: linear-gradient(to bottom, transparent, var(--background-color));
-    pointer-events: none;
-}
-
-#form-container {
-    height: 100%;
-    padding: 2rem 0;
 }
 
 /* Key-Value Pair Styles */
@@ -811,33 +786,6 @@ button:hover {
     min-width: 85px;
 }
 
-/* Status indicators */
-.yaml-status {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-
-.yaml-status.valid {
-    color: #16a34a;
-}
-
-.yaml-status.invalid {
-    color: var(--danger-color);
-}
-
-.status-icon {
-    width: 1.25rem;
-    height: 1.25rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    font-size: 0.75rem;
-}
-
 /* Warning and error icons */
 .warning-icon,
 .error-icon {
@@ -866,74 +814,4 @@ button:hover {
 
 .section-content input[type="checkbox"] + .section-title {
     margin-right: 1rem;
-}
-
-/* Footer buttons */
-.app-footer button {
-    padding: 0.625rem 1.25rem;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    min-width: 8rem;
-    font-family: var(--font-sans);
-    transition: all 0.2s ease;
-    cursor: pointer;
-    background-color: var(--primary-color);
-    color: white;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-.app-footer button:hover {
-    background-color: var(--primary-hover-color);
-}
-
-.app-footer #reset-btn {
-    background-color: var(--danger-color);
-}
-
-.app-footer #reset-btn:hover {
-    background-color: var(--danger-hover-color);
-}
-
-.app-footer #download-btn {
-    background-color: var(--primary-color);
-}
-
-.app-footer #download-btn:hover {
-    background-color: var(--primary-hover-color);
-}
-
-.CodeMirror.cm-s-eclipse.CodeMirror-wrap {
-    padding: 0px;
-}
-
-.yaml-error {
-    background-color: rgba(255, 0, 0, 0.1);
-    border-bottom: 2px wavy #dc3545;
-}
-.yaml-error-message {
-    color: #dc3545;
-    padding: 8px;
-    margin: 8px 0;
-    background-color: rgba(220, 53, 69, 0.1);
-    border-radius: 4px;
-    font-family: monospace;
-}
-.CodeMirror-lint-marker-error {
-    width: 16px;
-    height: 16px;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23dc3545'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E")
-        center center no-repeat;
-    background-size: contain;
-    margin-left: 5px;
-}
-.CodeMirror-lint-message-error {
-    padding-left: 20px;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23dc3545'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E")
-        left top no-repeat;
-    background-size: 16px;
 }

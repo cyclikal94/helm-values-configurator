@@ -4,9 +4,16 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Helm Values Configurator</title>
         <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="code-mirror.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+        <!-- CodeMirror Dependencies -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/yaml/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     </head>
     <body>
         <header class="app-header">
@@ -19,6 +26,8 @@
             </button>
         </header>
         <div class="container">
+            <div class="config-section">
+            </div>
             <div class="yaml-section">
                 <div class="yaml-header">
                     <h2>YAML Output</h2>
@@ -28,8 +37,9 @@
                     </div>
                 </div>
                 <div class="yaml-editor" id="yaml-editor">
+                    <textarea id="yaml-textarea"></textarea>
                 </div>
-                <div class="yaml-error-message" style="display: none;"></div>
+                <div class="yaml-error-message" id="yaml-error-message" style="display: none;"></div>
             </div>
         </div>
         <script src="script.js"></script>
