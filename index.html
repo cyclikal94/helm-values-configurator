@@ -1,0 +1,38 @@
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Helm Values Configurator</title>
+        <link rel="stylesheet" href="style.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+    </head>
+    <body>
+        <header class="app-header">
+            <h1>Helm Values Configurator</h1>
+            <button id="download-btn">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 1.33334V10.6667M8 10.6667L4 6.66668M8 10.6667L12 6.66668M2.66667 14.6667H13.3333" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                Download values.yaml
+            </button>
+        </header>
+        <div class="container">
+            <div class="yaml-section">
+                <div class="yaml-header">
+                    <h2>YAML Output</h2>
+                    <div class="yaml-status valid">
+                        <span class="status-icon">✓</span>
+                        <span class="status-text">Valid YAML</span>
+                    </div>
+                </div>
+                <div class="yaml-editor" id="yaml-editor">
+                    <!-- CodeMirror 6 YAML editor here -->
+                </div>
+                <div class="yaml-error-message" style="display: none;"></div>
+            </div>
+        </div>
+        <script src="script.js"></script>
+    </body>
+</html>
