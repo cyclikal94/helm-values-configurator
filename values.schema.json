@@ -4,7 +4,8 @@
   "type": "object",
   "properties": {
     "serverName": {
-      "type": "string"
+      "type": "string",
+      "description": "The server name of the Matrix Stack. This gets embedded in user IDs & room IDs. It can not change after the initial deployment. THIS WAS ADDED MANUALLY. Would require updating the `values.schema.json`"
     },
     "certManager": {
       "type": "object",

@@ -56,13 +56,13 @@ function generateForm(schema, parentElement, path = '') {
         } else {
             const input = createInputElement(value, currentPath);
             if (input) {
-                form_group.appendChild(input);
                 if (value.description) {
                     const description = document.createElement('div');
                     description.className = 'field-description';
                     description.textContent = value.description;
                     form_group.appendChild(description);
                 }
+                form_group.appendChild(input);
             }
         }
 
@@ -73,8 +73,13 @@ function generateForm(schema, parentElement, path = '') {
 // Create appropriate input element based on schema type
 function createInputElement(schema, path) {
     let input;
+    let types = Array.isArray(schema.type) ? schema.type : [schema.type];
 
-    switch (schema.type) {
+    const allowsNull = types.includes('null');
+    const nonNullTypes = types.filter(t => t !== 'null');
+    const primaryType = nonNullTypes.length > 0 ? nonNullTypes[0] : 'string';
+
+    switch (primaryType) {
         case 'string':
             if (schema.enum) {
                 input = document.createElement('select');
@@ -103,16 +108,6 @@ function createInputElement(schema, path) {
             input.type = 'checkbox';
             break;
 
-        case 'array':
-            // For simple arrays, create an add/remove interface
-            input = document.createElement('div');
-            input.className = 'array-container';
-            const addButton = document.createElement('button');
-            addButton.textContent = 'Add Item';
-            addButton.onclick = () => addArrayItem(input, schema.items, path);
-            input.appendChild(addButton);
-            break;
-
         default:
             return null;
     }
@@ -120,31 +115,13 @@ function createInputElement(schema, path) {
     if (input) {
         input.id = path;
         input.className = 'form-input';
+        if (allowsNull) {
+            input.classList.add('null-allowed');
+        }
         input.addEventListener('change', (e) => handleInputChange(e, path));
     }
 
     return input;
-}
-
-// Add new item to array
-function addArrayItem(container, itemSchema, path) {
-    const itemContainer = document.createElement('div');
-    itemContainer.className = 'array-item';
-    
-    const input = createInputElement(itemSchema, `${path}[]`);
-    if (input) {
-        itemContainer.appendChild(input);
-        
-        const removeButton = document.createElement('button');
-        removeButton.textContent = 'Remove';
-        removeButton.onclick = () => {
-            container.removeChild(itemContainer);
-            updateYamlFromForm();
-        };
-        
-        itemContainer.appendChild(removeButton);
-        container.insertBefore(itemContainer, container.lastChild);
-    }
 }
 
 // Handle form input changes
