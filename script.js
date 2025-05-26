@@ -149,6 +149,14 @@ function generateForm(schema, parentElement, path = '') {
         form_group.appendChild(header);
 
         if (value.type === 'object' && value.properties) {
+            // Add description for form groups if it exists
+            if (value.description) {
+                const description = document.createElement('div');
+                description.className = 'field-description';
+                description.textContent = value.description;
+                form_group.appendChild(description);
+            }
+            
             const content = document.createElement('div');
             content.className = 'form-group-content';
             form_group.appendChild(content);

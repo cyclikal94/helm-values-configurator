@@ -50,6 +50,7 @@
     },
     "elementWeb": {
       "type": "object",
+      "description": "Element Web is a web-based client for the Matrix protocol — an open standard for secure, decentralized, real-time communication.",
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -578,7 +579,7 @@
     },
     "wellKnownDelegation": {
       "type": "object",
-      "description": "Configuration for well-known delegation service.",
+      "description": "Well-Known Delegation lets you use a clean, user-friendly domain in Matrix IDs (like @alice:example.com), even if the actual Matrix server is hosted elsewhere (like matrix.example.com).",
       "properties": {
         "enabled": {
           "type": "boolean",
