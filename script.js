@@ -126,7 +126,8 @@ function generateForm(schema, parentElement, path = '') {
         if (value.type === 'object' && value.properties && value.properties.enabled) {
             const enabledInput = createInputElement(value.properties.enabled, `${currentPath}.enabled`);
             if (enabledInput) {
-                enabledInput.className = 'form-input enabled-checkbox checkbox-container';
+                enabledInput.classList.add('enabled-checkbox');
+                enabledInput.classList.add('checkbox-container');
                 title_controls.appendChild(enabledInput);
             }
         }
