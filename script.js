@@ -630,7 +630,7 @@ function getSchemaDefaultValue(path) {
 
 // Compare two objects and return the paths of changed values
 function findChangedPaths(oldObj, newObj, path = '') {
-    const changes = [];
+    const changes = new Set();
     
     // Helper to check if a value has changed
     const hasValueChanged = (oldVal, newVal) => {
@@ -642,7 +642,8 @@ function findChangedPaths(oldObj, newObj, path = '') {
         if (typeof oldVal !== typeof newVal) return true;
         
         // Handle arrays
-        if (Array.isArray(oldVal) && Array.isArray(newVal)) {
+        if (Array.isArray(oldVal)) {
+            if (!Array.isArray(newVal)) return true;
             if (oldVal.length !== newVal.length) return true;
             return oldVal.some((val, idx) => hasValueChanged(val, newVal[idx]));
         }
@@ -657,78 +658,125 @@ function findChangedPaths(oldObj, newObj, path = '') {
         return oldVal !== newVal;
     };
 
-    // Get all keys from both objects
-    const keys = new Set([...Object.keys(oldObj || {}), ...Object.keys(newObj || {})]);
+    // Helper to check if a value is effectively empty
+    const isEffectivelyEmpty = (val) => {
+        if (val === undefined || val === null) return true;
+        if (Array.isArray(val)) return val.length === 0;
+        if (typeof val === 'object') return Object.keys(val).length === 0;
+        return false;
+    };
 
-    for (const key of keys) {
+    // Get all keys from both objects
+    const oldKeys = new Set(Object.keys(oldObj || {}));
+    const newKeys = new Set(Object.keys(newObj || {}));
+    
+    // Find removed keys (present in old but not in new)
+    for (const key of oldKeys) {
         const currentPath = path ? `${path}.${key}` : key;
-        const oldValue = oldObj?.[key];
+        const oldValue = oldObj[key];
         const newValue = newObj?.[key];
 
-        // Handle undefined/deleted properties
-        if (oldValue === undefined || newValue === undefined) {
-            changes.push(currentPath);
-            continue;
+        // Check if value was removed or became empty
+        if (!newKeys.has(key) || isEffectivelyEmpty(newValue)) {
+            changes.add(currentPath);
+            changes.add(`${currentPath}.__removed`);
+            
+            // If it was an array or object, mark all child paths as removed
+            if (Array.isArray(oldValue)) {
+                oldValue.forEach((_, index) => {
+                    changes.add(`${currentPath}.${index}`);
+                    changes.add(`${currentPath}.${index}.__removed`);
+                });
+            } else if (typeof oldValue === 'object' && oldValue !== null) {
+                const addRemovedPaths = (obj, basePath) => {
+                    if (typeof obj !== 'object' || obj === null) return;
+                    Object.keys(obj).forEach(childKey => {
+                        const childPath = `${basePath}.${childKey}`;
+                        changes.add(childPath);
+                        changes.add(`${childPath}.__removed`);
+                        if (typeof obj[childKey] === 'object' && obj[childKey] !== null) {
+                            addRemovedPaths(obj[childKey], childPath);
+                        }
+                    });
+                };
+                addRemovedPaths(oldValue, currentPath);
+            }
         }
+    }
 
-        // Handle arrays specially
-        if (Array.isArray(oldValue) && Array.isArray(newValue)) {
-            // Always add the array path itself if there's any change
-            if (oldValue.length !== newValue.length) {
-                changes.push(currentPath);
+    // Find added keys (present in new but not in old)
+    for (const key of newKeys) {
+        const currentPath = path ? `${path}.${key}` : key;
+        const oldValue = oldObj?.[key];
+        const newValue = newObj[key];
+
+        // Check if value was added or changed from empty
+        if (!oldKeys.has(key) || isEffectivelyEmpty(oldValue)) {
+            changes.add(currentPath);
+            if (!isEffectivelyEmpty(newValue)) {
+                changes.add(`${currentPath}.__added`);
+            }
+        }
+    }
+
+    // Check changed values for keys present in both
+    for (const key of newKeys) {
+        if (oldKeys.has(key)) {
+            const currentPath = path ? `${path}.${key}` : key;
+            const oldValue = oldObj[key];
+            const newValue = newObj[key];
+
+            // Skip if both values are effectively empty
+            if (isEffectivelyEmpty(oldValue) && isEffectivelyEmpty(newValue)) {
+                continue;
             }
 
-            // Check each array item
-            const maxLength = Math.max(oldValue.length, newValue.length);
-            for (let i = 0; i < maxLength; i++) {
-                const oldItem = oldValue[i];
-                const newItem = newValue[i];
+            // Handle arrays specially
+            if (Array.isArray(oldValue) || Array.isArray(newValue)) {
+                if (!Array.isArray(oldValue) || !Array.isArray(newValue) || 
+                    oldValue.length !== newValue.length) {
+                    changes.add(currentPath);
+                }
 
-                // If item exists in both arrays and is an object, check it recursively
-                if (oldItem && newItem && typeof oldItem === 'object' && typeof newItem === 'object') {
-                    const itemChanges = findChangedPaths(oldItem, newItem, `${currentPath}.${i}`);
-                    if (itemChanges.length > 0) {
-                        changes.push(`${currentPath}.${i}`);
-                        changes.push(...itemChanges);
+                // If both are arrays, check each item
+                if (Array.isArray(oldValue) && Array.isArray(newValue)) {
+                    const maxLength = Math.max(oldValue.length, newValue.length);
+                    for (let i = 0; i < maxLength; i++) {
+                        const oldItem = oldValue[i];
+                        const newItem = newValue[i];
+
+                        // If item exists in both arrays and is an object, check it recursively
+                        if (oldItem && newItem && typeof oldItem === 'object' && typeof newItem === 'object') {
+                            const itemChanges = findChangedPaths(oldItem, newItem, `${currentPath}.${i}`);
+                            if (itemChanges.size > 0) {
+                                changes.add(`${currentPath}.${i}`);
+                                itemChanges.forEach(change => changes.add(change));
+                            }
+                        }
+                        // If items are different (including one being undefined), mark as changed
+                        else if (hasValueChanged(oldItem, newItem)) {
+                            changes.add(`${currentPath}.${i}`);
+                        }
                     }
                 }
-                // If items are different (including one being undefined), mark as changed
-                else if (hasValueChanged(oldItem, newItem)) {
-                    changes.push(`${currentPath}.${i}`);
-                }
+            }
+            // Handle nested objects (but not arrays)
+            else if (typeof newValue === 'object' && newValue !== null && 
+                     typeof oldValue === 'object' && oldValue !== null &&
+                     !Array.isArray(newValue) && !Array.isArray(oldValue)) {
+                const nestedChanges = findChangedPaths(oldValue, newValue, currentPath);
+                nestedChanges.forEach(change => changes.add(change));
+            }
+            // Handle primitives and other values
+            else if (hasValueChanged(oldValue, newValue)) {
+                changes.add(currentPath);
             }
         }
-        // Handle nested objects (but not arrays)
-        else if (typeof newValue === 'object' && newValue !== null && 
-                 typeof oldValue === 'object' && oldValue !== null &&
-                 !Array.isArray(newValue) && !Array.isArray(oldValue)) {
-            changes.push(...findChangedPaths(oldValue, newValue, currentPath));
-        }
-        // Handle primitives and other values
-        else if (hasValueChanged(oldValue, newValue)) {
-            changes.push(currentPath);
-        }
     }
 
-    // Remove duplicates and return
-    return [...new Set(changes)];
+    return changes;
 }
 
-// Helper function to check if a path is an array item and extract array info
-function getArrayInfo(path) {
-    const match = path.match(/^(.*?)\.(\d+)\.(.*)$/);
-    if (match) {
-        return {
-            isArrayItem: true,
-            arrayPath: match[1], // Path to the array
-            index: parseInt(match[2]), // Array index
-            remainingPath: match[3] // Remaining path after array item
-        };
-    }
-    return { isArrayItem: false };
-}
-
-// Update specific form fields based on changed paths
 function updateChangedFormFields(changedPaths, data) {
     console.log('Changed paths:', changedPaths);
     console.log('Current data:', data);
@@ -737,12 +785,54 @@ function updateChangedFormFields(changedPaths, data) {
     const affectedPaths = new Set(changedPaths);
     const processedArrays = new Set();
 
+    // Helper to check if a value is effectively empty
+    const isEffectivelyEmpty = (val) => {
+        if (val === undefined || val === null) return true;
+        if (Array.isArray(val)) return val.length === 0;
+        if (typeof val === 'object') return Object.keys(val).length === 0;
+        return false;
+    };
+
+    // Handle removed paths first - only clear values, don't remove form structure
+    changedPaths.forEach(path => {
+        if (path.endsWith('.__removed')) {
+            const actualPath = path.replace(/\.__removed$/, '');
+            
+            // Clear any inputs with this path or child paths
+            inputs.forEach(input => {
+                if (input.id === actualPath || input.id.startsWith(`${actualPath}.`)) {
+                    if (input.type === 'checkbox') {
+                        input.checked = false;
+                    } else {
+                        input.value = '';
+                    }
+
+                    // Update default indicator if it exists
+                    const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
+                    if (defaultIndicator) {
+                        const defaultValue = getSchemaDefaultValue(input.id);
+                        defaultIndicator.style.display = 'inline-flex'; // Show when empty
+                    }
+                }
+            });
+
+            // If this is an array, clear its items but keep the container
+            const arrayContainer = document.getElementById(actualPath);
+            if (arrayContainer && arrayContainer.classList.contains('form-group-content')) {
+                arrayContainer.innerHTML = '';
+                updateArrayToggleVisibility(arrayContainer);
+            }
+        }
+    });
+
     // First, find all array paths that need updating
     const arrayPathsToUpdate = new Set();
     changedPaths.forEach(path => {
-        // If the path itself is an array
+        if (path.endsWith('.__removed') || path.endsWith('.__added')) return;
+
+        // If the path itself is an array or might contain an array
         const value = getValueByPath(data, path);
-        if (Array.isArray(value)) {
+        if (Array.isArray(value) || isEffectivelyEmpty(value)) {
             arrayPathsToUpdate.add(path);
         }
         
@@ -758,28 +848,30 @@ function updateChangedFormFields(changedPaths, data) {
     // Update all affected arrays
     arrayPathsToUpdate.forEach(arrayPath => {
         const arrayValue = getValueByPath(data, arrayPath);
-        if (Array.isArray(arrayValue)) {
-            const arrayContainer = document.getElementById(arrayPath);
-            console.log('Found array container for path:', arrayPath, arrayContainer);
-            if (arrayContainer) {
-                updateArrayContainer(arrayContainer, arrayPath, arrayValue, data);
-            } else {
-                console.warn('Could not find array container for path:', arrayPath);
-            }
+        const arrayContainer = document.getElementById(arrayPath);
+        if (!arrayContainer) return;
+
+        if (isEffectivelyEmpty(arrayValue)) {
+            // Array was removed, emptied, or became undefined/null/{}
+            arrayContainer.innerHTML = '';
+            updateArrayToggleVisibility(arrayContainer);
+        } else if (Array.isArray(arrayValue)) {
+            updateArrayContainer(arrayContainer, arrayPath, arrayValue, data);
         }
     });
 
     // Then update individual form fields
     inputs.forEach(input => {
         const path = input.id;
-        const arrayInfo = getArrayInfo(path);
+        if (path.endsWith('.__removed') || path.endsWith('.__added')) return;
 
+        const arrayInfo = getArrayInfo(path);
         if (affectedPaths.has(path) || 
             (arrayInfo.isArrayItem && affectedPaths.has(`${arrayInfo.arrayPath}.${arrayInfo.index}.${arrayInfo.remainingPath}`))) {
             
             const value = getValueByPath(data, path);
             
-            if (value === undefined) {
+            if (isEffectivelyEmpty(value)) {
                 if (input.type === 'checkbox') {
                     input.checked = false;
                 } else {
@@ -969,4 +1061,18 @@ function updateArrayToggleVisibility(container) {
     if (parentGroup && toggleBtn) {
         toggleBtn.innerHTML = parentGroup.classList.contains('collapsed') ? '▶' : '▼';
     }
+}
+
+// Helper function to check if a path is an array item and extract array info
+function getArrayInfo(path) {
+    const match = path.match(/^(.*?)\.(\d+)\.(.*)$/);
+    if (match) {
+        return {
+            isArrayItem: true,
+            arrayPath: match[1], // Path to the array
+            index: parseInt(match[2]), // Array index
+            remainingPath: match[3] // Remaining path after array item
+        };
+    }
+    return { isArrayItem: false };
 }
