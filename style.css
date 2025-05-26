@@ -36,6 +36,10 @@
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 
+.rotate-45 {
+    transform: rotate(45deg);
+}
+
 /****************************
  * Layout & Header Styles   *
  ****************************/
@@ -104,8 +108,9 @@ html, body {
     gap: 1rem;
 }
 
-.form-group-content {
-    margin-top: 1rem;
+.form-group-content:empty {
+    margin-top: 0;
+    display: none;
 }
 
 .form-group-header {
@@ -250,7 +255,7 @@ input[type="checkbox"].enabled-checkbox[data-tooltip]:hover::after {
     text-align: center;
 }
 
-.form-group-toggle {
+.form-group-controls {
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -268,8 +273,26 @@ input[type="checkbox"].enabled-checkbox[data-tooltip]:hover::after {
     justify-content: center;
     outline: none;
     flex-shrink: 0;
+}
+
+.form-group-toggle {
     background-color: var(--border-color);
     color: var(--text-color);
+}
+
+.form-group-add {
+    background-color: var(--success-background-color);
+    color: var(--success-color);
+}
+
+.form-group-remove {
+    background-color: var(--danger-background-color);
+    color: var(--danger-color);
+}
+
+.form-group-info {
+    background-color: var(--info-background-color);
+    color: var(--info-color);
 }
 
 .form-group.collapsed .form-group-content {
@@ -340,7 +363,7 @@ input[type="checkbox"].enabled-checkbox[data-tooltip]:hover::after {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     font-size: 14px;
 }
 

@@ -27,7 +27,7 @@ function initializeEditor() {
     });
 
     // Add change listener
-    editor.on('change', debounce(validateYaml, 500));
+    editor.on('change', debounce(() => validateYaml(false), 500));
 }
 
 // Load JSON Schema
@@ -146,7 +146,7 @@ function generateForm(schema, parentElement, path = '') {
         // Add toggle button if this is an object with properties
         if (value.type === 'object' && value.properties) {
             const toggleBtn = document.createElement('button');
-            toggleBtn.className = 'form-group-toggle';
+            toggleBtn.className = 'form-group-controls form-group-toggle';
             toggleBtn.innerHTML = '▶'; // Start with collapsed arrow
             toggleBtn.addEventListener('click', () => {
                 form_group.classList.toggle('collapsed');
@@ -225,7 +225,63 @@ function createInputElement(schema, path) {
         case 'array':
             container = document.createElement('div');
             container.className = 'form-group-content';
+            container.id = path;  // Set ID on the array container
             
+            // Create array controls - these will be moved to the form-group header by the generateForm function
+            const arrayControls = document.createElement('div');
+            arrayControls.className = 'array-controls';
+            
+            // Add item button
+            const addButton = document.createElement('button');
+            addButton.className = 'form-group-controls form-group-add';
+            addButton.innerHTML = '<span class="rotate-45">✗</span>';
+            addButton.title = 'Add item';
+            addButton.addEventListener('click', () => {
+                const itemCount = container.children.length;
+                const newCard = createArrayItemCard(schema.items, path, itemCount);
+                
+                // Ensure section is expanded when adding items
+                const parentGroup = container.closest('.form-group');
+                if (parentGroup) {
+                    parentGroup.classList.remove('collapsed');
+                }
+                
+                container.appendChild(newCard);
+                updateArrayItemTitles(container, path);
+                
+                // Show toggle button when items exist
+                updateArrayToggleVisibility(container);
+            });
+            
+            // Clear array button
+            const clearButton = document.createElement('button');
+            clearButton.className = 'form-group-controls form-group-remove';
+            clearButton.innerHTML = '✗';
+            clearButton.title = 'Clear all items';
+            clearButton.addEventListener('click', () => {
+                container.innerHTML = '';
+                handleInputChange({ target: container }, path);
+                // Hide toggle button when no items
+                updateArrayToggleVisibility(container);
+            });
+
+            // Toggle button for array section
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'form-group-controls form-group-toggle';
+            toggleBtn.innerHTML = '▶'; // Start with collapsed arrow
+            toggleBtn.style.display = 'none'; // Hide initially
+            toggleBtn.addEventListener('click', () => {
+                const parentGroup = container.closest('.form-group');
+                if (parentGroup) {
+                    parentGroup.classList.toggle('collapsed');
+                    toggleBtn.innerHTML = parentGroup.classList.contains('collapsed') ? '▶' : '▼';
+                }
+            });
+            
+            arrayControls.appendChild(addButton);
+            arrayControls.appendChild(clearButton);
+            arrayControls.appendChild(toggleBtn); // Add toggle as last control
+            container.arrayControls = arrayControls; // Attach controls to container for later use
             
             // If there's a default value, populate it
             if (defaultValue && Array.isArray(defaultValue)) {
@@ -234,37 +290,9 @@ function createInputElement(schema, path) {
                     container.appendChild(itemCard);
                 });
                 updateArrayItemTitles(container, path);
+                // Show toggle if we added items
+                updateArrayToggleVisibility(container);
             }
-            
-            // Create array controls - these will be moved to the form-group header by the generateForm function
-            const arrayControls = document.createElement('div');
-            arrayControls.className = 'array-controls';
-            
-            // Add item button
-            const addButton = document.createElement('button');
-            addButton.className = 'form-group-toggle';
-            addButton.innerHTML = '+';
-            addButton.title = 'Add item';
-            addButton.addEventListener('click', () => {
-                const itemCount = container.children.length;
-                const newCard = createArrayItemCard(schema.items, path, itemCount);
-                container.appendChild(newCard);
-                updateArrayItemTitles(container, path);
-            });
-            
-            // Clear array button
-            const clearButton = document.createElement('button');
-            clearButton.className = 'form-group-toggle';
-            clearButton.innerHTML = '✗';
-            clearButton.title = 'Clear all items';
-            clearButton.addEventListener('click', () => {
-                container.innerHTML = '';
-                handleInputChange({ target: container }, path);
-            });
-            
-            arrayControls.appendChild(addButton);
-            arrayControls.appendChild(clearButton);
-            container.arrayControls = arrayControls; // Attach controls to container for later use
             
             return container;
 
@@ -375,7 +403,7 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
     
     // Move up button
     const moveUpBtn = document.createElement('button');
-    moveUpBtn.className = 'form-group-toggle';
+    moveUpBtn.className = 'form-group-controls form-group-info';
     moveUpBtn.innerHTML = '↑';
     moveUpBtn.title = 'Move up';
     moveUpBtn.addEventListener('click', () => {
@@ -389,7 +417,7 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
     
     // Move down button
     const moveDownBtn = document.createElement('button');
-    moveDownBtn.className = 'form-group-toggle';
+    moveDownBtn.className = 'form-group-controls form-group-info';
     moveDownBtn.innerHTML = '↓';
     moveDownBtn.title = 'Move down';
     moveDownBtn.addEventListener('click', () => {
@@ -403,14 +431,16 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
     
     // Remove button
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'form-group-toggle';
+    removeBtn.className = 'form-group-controls form-group-remove';
     removeBtn.innerHTML = '✗';
     removeBtn.title = 'Remove item';
     removeBtn.addEventListener('click', () => {
-        card.remove();
         const arrayContent = card.parentNode;
-        updateArrayItemTitles(arrayContent, arrayPath);
-        handleInputChange({ target: arrayContent }, arrayPath);
+        if (arrayContent) {
+            card.remove();
+            updateArrayItemTitles(arrayContent, arrayPath);
+            handleInputChange({ target: arrayContent }, arrayPath);
+        }
     });
     
     title_controls.appendChild(moveUpBtn);
@@ -427,7 +457,7 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
     // Generate form elements for the item's properties
     if (itemSchema.type === 'object' && itemSchema.properties) {
         Object.entries(itemSchema.properties).forEach(([key, propSchema]) => {
-            const itemPath = `${arrayPath}[${index}].${key}`;
+            const itemPath = `${arrayPath}.${index}.${key}`;
             
             const form_group = document.createElement('div');
             form_group.className = 'form-group';
@@ -475,21 +505,31 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
 }
 
 // Helper function to update array item titles
-function updateArrayItemTitles(arrayContent, arrayPath) {
-    const cards = arrayContent.children;
+function updateArrayItemTitles(arrayContainer, arrayPath) {
+    if (!arrayContainer) return;
+    
+    const cards = arrayContainer.children;
     Array.from(cards).forEach((card, index) => {
-        const title = card.querySelector('.array-item-title');
-        const nameInput = card.querySelector('input[id$=".name"]');
-        const nameValue = nameInput ? nameInput.value.trim() : '';
-        title.textContent = nameValue || getDefaultArrayItemTitle(arrayPath, index);
-        
-        // Update all input IDs to reflect new index
+        // Update all input IDs in the card to match the new index
         const inputs = card.querySelectorAll('input, select');
         inputs.forEach(input => {
             const oldId = input.id;
-            const newId = oldId.replace(/\[\d+\]/, `[${index}]`);
-            input.id = newId;
+            const parts = oldId.split('.');
+            // Only update if this input belongs to this array
+            if (parts[0] === arrayPath.split('.')[0]) {
+                const lastPart = parts[parts.length - 1];
+                const newId = `${arrayPath}.${index}.${lastPart}`;
+                input.id = newId;
+            }
         });
+
+        // Update the title
+        const title = card.querySelector('.array-item-title');
+        const nameInput = card.querySelector(`[id$=".${index}.name"]`);
+        const nameValue = nameInput ? nameInput.value.trim() : '';
+        if (title) {
+            title.textContent = nameValue || getDefaultArrayItemTitle(arrayPath, index);
+        }
     });
 }
 
@@ -594,10 +634,26 @@ function findChangedPaths(oldObj, newObj, path = '') {
     
     // Helper to check if a value has changed
     const hasValueChanged = (oldVal, newVal) => {
-        if (oldVal === newVal) return false;
-        if (oldVal === null || newVal === null) return true;
+        // Handle undefined/null cases
+        if (oldVal === undefined || newVal === undefined) return true;
+        if (oldVal === null || newVal === null) return oldVal !== newVal;
+        
+        // Handle different types
         if (typeof oldVal !== typeof newVal) return true;
-        if (typeof oldVal === 'object') return false; // We'll handle objects recursively
+        
+        // Handle arrays
+        if (Array.isArray(oldVal) && Array.isArray(newVal)) {
+            if (oldVal.length !== newVal.length) return true;
+            return oldVal.some((val, idx) => hasValueChanged(val, newVal[idx]));
+        }
+        
+        // Handle objects (but not arrays)
+        if (typeof oldVal === 'object' && !Array.isArray(oldVal) &&
+            typeof newVal === 'object' && !Array.isArray(newVal)) {
+            return false; // We'll handle objects recursively in the main function
+        }
+        
+        // Handle primitives
         return oldVal !== newVal;
     };
 
@@ -609,56 +665,228 @@ function findChangedPaths(oldObj, newObj, path = '') {
         const oldValue = oldObj?.[key];
         const newValue = newObj?.[key];
 
+        // Handle undefined/deleted properties
         if (oldValue === undefined || newValue === undefined) {
             changes.push(currentPath);
-        } else if (typeof newValue === 'object' && newValue !== null && typeof oldValue === 'object' && oldValue !== null) {
-            // Recursively check nested objects
+            continue;
+        }
+
+        // Handle arrays specially
+        if (Array.isArray(oldValue) && Array.isArray(newValue)) {
+            // Always add the array path itself if there's any change
+            if (oldValue.length !== newValue.length) {
+                changes.push(currentPath);
+            }
+
+            // Check each array item
+            const maxLength = Math.max(oldValue.length, newValue.length);
+            for (let i = 0; i < maxLength; i++) {
+                const oldItem = oldValue[i];
+                const newItem = newValue[i];
+
+                // If item exists in both arrays and is an object, check it recursively
+                if (oldItem && newItem && typeof oldItem === 'object' && typeof newItem === 'object') {
+                    const itemChanges = findChangedPaths(oldItem, newItem, `${currentPath}.${i}`);
+                    if (itemChanges.length > 0) {
+                        changes.push(`${currentPath}.${i}`);
+                        changes.push(...itemChanges);
+                    }
+                }
+                // If items are different (including one being undefined), mark as changed
+                else if (hasValueChanged(oldItem, newItem)) {
+                    changes.push(`${currentPath}.${i}`);
+                }
+            }
+        }
+        // Handle nested objects (but not arrays)
+        else if (typeof newValue === 'object' && newValue !== null && 
+                 typeof oldValue === 'object' && oldValue !== null &&
+                 !Array.isArray(newValue) && !Array.isArray(oldValue)) {
             changes.push(...findChangedPaths(oldValue, newValue, currentPath));
-        } else if (hasValueChanged(oldValue, newValue)) {
+        }
+        // Handle primitives and other values
+        else if (hasValueChanged(oldValue, newValue)) {
             changes.push(currentPath);
         }
     }
 
-    return changes;
+    // Remove duplicates and return
+    return [...new Set(changes)];
+}
+
+// Helper function to check if a path is an array item and extract array info
+function getArrayInfo(path) {
+    const match = path.match(/^(.*?)\.(\d+)\.(.*)$/);
+    if (match) {
+        return {
+            isArrayItem: true,
+            arrayPath: match[1], // Path to the array
+            index: parseInt(match[2]), // Array index
+            remainingPath: match[3] // Remaining path after array item
+        };
+    }
+    return { isArrayItem: false };
 }
 
 // Update specific form fields based on changed paths
 function updateChangedFormFields(changedPaths, data) {
-    // Get all form inputs that match any of the changed paths or their parent paths
+    console.log('Changed paths:', changedPaths);
+    console.log('Current data:', data);
+
     const inputs = document.querySelectorAll('.form-input');
-    const affectedPaths = new Set();
-    
-    // Add all parent paths of changed paths
+    const affectedPaths = new Set(changedPaths);
+    const processedArrays = new Set();
+
+    // First, find all array paths that need updating
+    const arrayPathsToUpdate = new Set();
     changedPaths.forEach(path => {
-        let currentPath = '';
-        path.split('.').forEach(part => {
-            currentPath = currentPath ? `${currentPath}.${part}` : part;
-            affectedPaths.add(currentPath);
-        });
+        // If the path itself is an array
+        const value = getValueByPath(data, path);
+        if (Array.isArray(value)) {
+            arrayPathsToUpdate.add(path);
+        }
+        
+        // If this is an array item, add its parent array path
+        const arrayInfo = getArrayInfo(path);
+        if (arrayInfo.isArrayItem) {
+            arrayPathsToUpdate.add(arrayInfo.arrayPath);
+        }
     });
 
-    // Update or clear all affected inputs
+    console.log('Array paths to update:', [...arrayPathsToUpdate]);
+
+    // Update all affected arrays
+    arrayPathsToUpdate.forEach(arrayPath => {
+        const arrayValue = getValueByPath(data, arrayPath);
+        if (Array.isArray(arrayValue)) {
+            const arrayContainer = document.getElementById(arrayPath);
+            console.log('Found array container for path:', arrayPath, arrayContainer);
+            if (arrayContainer) {
+                updateArrayContainer(arrayContainer, arrayPath, arrayValue, data);
+            } else {
+                console.warn('Could not find array container for path:', arrayPath);
+            }
+        }
+    });
+
+    // Then update individual form fields
     inputs.forEach(input => {
         const path = input.id;
-        if (affectedPaths.has(path.split('.')[0])) {
+        const arrayInfo = getArrayInfo(path);
+
+        if (affectedPaths.has(path) || 
+            (arrayInfo.isArrayItem && affectedPaths.has(`${arrayInfo.arrayPath}.${arrayInfo.index}.${arrayInfo.remainingPath}`))) {
+            
             const value = getValueByPath(data, path);
+            
             if (value === undefined) {
-                // Clear the input if the path no longer exists in the data
                 if (input.type === 'checkbox') {
                     input.checked = false;
                 } else {
                     input.value = '';
                 }
             } else {
-                // Update with new value
                 if (input.type === 'checkbox') {
                     input.checked = value;
                 } else {
                     input.value = value ?? '';
                 }
             }
+            
+            // Update default indicator if it exists
+            const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
+            if (defaultIndicator) {
+                const defaultValue = getSchemaDefaultValue(path);
+                if (input.type === 'checkbox') {
+                    defaultIndicator.style.display = (input.checked === defaultValue) ? 'inline-flex' : 'none';
+                } else {
+                    defaultIndicator.style.display = (String(input.value) === String(defaultValue)) ? 'inline-flex' : 'none';
+                }
+            }
         }
     });
+}
+
+function updateArrayContainer(container, arrayPath, arrayValue, fullData) {
+    console.log('Updating array container:', {
+        arrayPath,
+        currentCards: container.children.length,
+        newArrayLength: Array.isArray(arrayValue) ? arrayValue.length : 0,
+        arrayValue
+    });
+
+    const itemSchema = getArrayItemSchema(arrayPath);
+    if (!itemSchema) {
+        console.warn('No item schema found for array path:', arrayPath);
+        return;
+    }
+
+    // Treat empty objects or non-array values as empty arrays
+    if (!Array.isArray(arrayValue) || Object.keys(arrayValue).length === 0) {
+        console.log('Treating value as empty array:', arrayValue);
+        arrayValue = [];
+    }
+
+    // Remove extra cards if array is now smaller
+    while (container.children.length > arrayValue.length) {
+        console.log('Removing extra card from', arrayPath);
+        container.lastChild.remove();
+    }
+
+    // Add new cards if array is now larger
+    while (container.children.length < arrayValue.length) {
+        const index = container.children.length;
+        console.log('Adding new card at index:', index, 'for path:', arrayPath);
+        const newCard = createArrayItemCard(itemSchema, arrayPath, index);
+        container.appendChild(newCard);
+    }
+
+    // Update all cards with current values
+    Array.from(container.children).forEach((card, index) => {
+        const itemValue = arrayValue[index];
+        if (itemValue && typeof itemValue === 'object') {
+            // Update all inputs in the card
+            Object.entries(itemValue).forEach(([key, value]) => {
+                const inputId = `${arrayPath}.${index}.${key}`;
+                const input = card.querySelector(`[id="${inputId}"]`);
+                if (input) {
+                    // Update input ID to match new index
+                    input.id = inputId;
+                    if (input.type === 'checkbox') {
+                        input.checked = value;
+                    } else {
+                        input.value = value ?? '';
+                    }
+                }
+            });
+
+            // Update the card title based on the name field if it exists
+            const titleElement = card.querySelector('.array-item-title');
+            if (titleElement) {
+                const nameValue = itemValue.name;
+                titleElement.textContent = nameValue || getDefaultArrayItemTitle(arrayPath, index);
+            }
+        }
+    });
+
+    // Update all array item titles and ensure IDs are correct
+    updateArrayItemTitles(container, arrayPath);
+
+    // Update toggle visibility based on array items
+    updateArrayToggleVisibility(container);
+}
+
+// Helper function to get array item schema from the global schema
+function getArrayItemSchema(arrayPath) {
+    let current = schema;
+    const parts = arrayPath.split('.');
+    
+    for (const part of parts) {
+        if (!current?.properties?.[part]) return null;
+        current = current.properties[part];
+    }
+    
+    return current?.items;
 }
 
 // Helper function to get a value from an object by dot-notation path
@@ -723,4 +951,22 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+// Helper function to update array toggle visibility
+function updateArrayToggleVisibility(container) {
+    const arrayControls = container.arrayControls;
+    if (!arrayControls) return;
+
+    const toggleBtn = arrayControls.querySelector('.form-group-toggle');
+    if (!toggleBtn) return;
+
+    const hasItems = container.children.length > 0;
+    toggleBtn.style.display = hasItems ? 'inline-flex' : 'none';
+
+    // Update toggle button icon to match current state
+    const parentGroup = container.closest('.form-group');
+    if (parentGroup && toggleBtn) {
+        toggleBtn.innerHTML = parentGroup.classList.contains('collapsed') ? '▶' : '▼';
+    }
 }
