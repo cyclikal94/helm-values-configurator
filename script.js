@@ -126,8 +126,19 @@ function generateForm(schema, parentElement, path = '') {
         if (value.type === 'object' && value.properties && value.properties.enabled) {
             const enabledInput = createInputElement(value.properties.enabled, `${currentPath}.enabled`);
             if (enabledInput) {
-                enabledInput.classList.add('enabled-checkbox');
                 enabledInput.classList.add('checkbox-container');
+                // Find the actual input element and add the tooltip to it
+                const checkbox = enabledInput.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.classList.add('enabled-checkbox');
+                    // Add tooltip for enabled checkbox description
+                    if (value.properties.enabled.description) {
+                        const tooltip = value.properties.enabled.description;
+                        checkbox.setAttribute('data-tooltip', tooltip);
+                        // Clear the title to prevent default browser tooltip
+                        checkbox.title = '';
+                    }
+                }
                 title_controls.appendChild(enabledInput);
             }
         }
@@ -165,6 +176,12 @@ function generateForm(schema, parentElement, path = '') {
         } else if (value.type === 'boolean') {
             const input = createInputElement(value, currentPath);
             if (input) {
+                if (value.description) {
+                    const description = document.createElement('div');
+                    description.className = 'field-description';
+                    description.textContent = value.description;
+                    form_group.appendChild(description);
+                }
                 title_controls.appendChild(input);
             }
         } else {
@@ -264,10 +281,10 @@ function createInputElement(schema, path) {
                 container.appendChild(input);
                 // For checkboxes, update indicator based on checked state
                 input.addEventListener('change', (e) => {
-                    defaultIndicator.style.visibility = (e.target.checked === defaultValue) ? 'visible' : 'hidden';
+                    defaultIndicator.style.display = (e.target.checked === defaultValue) ? 'block' : 'none';
                 });
                 // Set initial visibility
-                defaultIndicator.style.visibility = (input.checked === defaultValue) ? 'visible' : 'hidden';
+                defaultIndicator.style.display = (input.checked === defaultValue) ? 'block' : 'none';
             } else {
                 // For non-checkbox inputs, update the indicator visibility based on value
                 input.addEventListener('input', (e) => {
@@ -312,7 +329,7 @@ function populateFormFromYaml(data, parentPath = '') {
                 const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                 if (defaultIndicator) {
                     const defaultValue = getSchemaDefaultValue(input.id);
-                    defaultIndicator.style.visibility = (input.checked === defaultValue) ? 'visible' : 'hidden';
+                    defaultIndicator.style.display = (input.checked === defaultValue) ? 'block' : 'none';
                 }
             } else {
                 input.value = '';
@@ -338,7 +355,7 @@ function populateFormFromYaml(data, parentPath = '') {
                     const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                     if (defaultIndicator) {
                         const defaultValue = getSchemaDefaultValue(path);
-                        defaultIndicator.style.visibility = (value === defaultValue) ? 'visible' : 'hidden';
+                        defaultIndicator.style.display = (value === defaultValue) ? 'block' : 'none';
                     }
                 } else {
                     input.value = value ?? '';
