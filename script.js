@@ -281,16 +281,16 @@ function createInputElement(schema, path) {
                 container.appendChild(input);
                 // For checkboxes, update indicator based on checked state
                 input.addEventListener('change', (e) => {
-                    defaultIndicator.style.display = (e.target.checked === defaultValue) ? 'block' : 'none';
+                    defaultIndicator.style.display = (e.target.checked === defaultValue) ? 'inline-flex' : 'none';
                 });
                 // Set initial visibility
-                defaultIndicator.style.display = (input.checked === defaultValue) ? 'block' : 'none';
+                defaultIndicator.style.display = (input.checked === defaultValue) ? 'inline-flex' : 'none';
             } else {
                 // For non-checkbox inputs, update the indicator visibility based on value
                 input.addEventListener('input', (e) => {
                     const isEmpty = !e.target.value;
                     const isDefault = e.target.value === String(defaultValue);
-                    defaultIndicator.style.display = (isEmpty || isDefault) ? 'block' : 'none';
+                    defaultIndicator.style.display = (isEmpty || isDefault) ? 'inline-flex' : 'none';
                 });
             }
         }
@@ -314,7 +314,7 @@ function handleInputChange(event, path) {
 function showError(message) {
     const errorElement = document.getElementById('yaml-error-message');
     errorElement.textContent = message;
-    errorElement.style.display = 'block';
+    errorElement.style.display = 'inline-flex';
 }
 
 // Populate form with YAML values
@@ -329,14 +329,14 @@ function populateFormFromYaml(data, parentPath = '') {
                 const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                 if (defaultIndicator) {
                     const defaultValue = getSchemaDefaultValue(input.id);
-                    defaultIndicator.style.display = (input.checked === defaultValue) ? 'block' : 'none';
+                    defaultIndicator.style.display = (input.checked === defaultValue) ? 'inline-flex' : 'none';
                 }
             } else {
                 input.value = '';
                 // Update default indicator if it exists
                 const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                 if (defaultIndicator) {
-                    defaultIndicator.style.display = 'block'; // Show when empty as placeholder is showing
+                    defaultIndicator.style.display = 'inline-flex'; // Show when empty as placeholder is showing
                 }
             }
         }
@@ -355,7 +355,7 @@ function populateFormFromYaml(data, parentPath = '') {
                     const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                     if (defaultIndicator) {
                         const defaultValue = getSchemaDefaultValue(path);
-                        defaultIndicator.style.display = (value === defaultValue) ? 'block' : 'none';
+                        defaultIndicator.style.display = (value === defaultValue) ? 'inline-flex' : 'none';
                     }
                 } else {
                     input.value = value ?? '';
@@ -363,7 +363,7 @@ function populateFormFromYaml(data, parentPath = '') {
                     const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                     if (defaultIndicator) {
                         const defaultValue = getSchemaDefaultValue(path);
-                        defaultIndicator.style.display = (String(value) === String(defaultValue)) ? 'block' : 'none';
+                        defaultIndicator.style.display = (String(value) === String(defaultValue)) ? 'inline-flex' : 'none';
                     }
                 }
             } else if (typeof value === 'object' && value !== null) {
@@ -508,7 +508,7 @@ function validateYaml(fullUpdate = false) {
         statusText.textContent = 'Invalid YAML';
         
         // Show error message
-        errorMessageElement.style.display = 'block';
+        errorMessageElement.style.display = 'inline-flex';
         errorMessageElement.textContent = `Error: ${error.message}`;
     }
 }
