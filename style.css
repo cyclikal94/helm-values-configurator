@@ -104,6 +104,10 @@ html, body {
     gap: 1rem;
 }
 
+.form-group-content {
+    margin-top: 1rem;
+}
+
 .form-group-header {
     display: flex;
     justify-content: space-between;
