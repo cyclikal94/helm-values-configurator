@@ -23,13 +23,15 @@
     --warning-color: #f59e0b;
     --warning-hover-color: #db9214;
     --warning-background-color: #fffcf2;
-    --success-color: #e8f5e9;
+    --success-color: #2e7d32;
     --success-hover-color: #e8f5e9;
     --success-background-color: #e8f5e9;
-    
+    --info-color: #1565c0;
+    --info-hover-color: #bbdefb;
+    --info-background-color: #e3f2fd;
+    /* Text */
     --text-color: #1e293b;
     --muted-text-color: #64748b;
-
     --font-mono: 'JetBrains Mono', monospace;
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 }
@@ -42,7 +44,7 @@ html, body {
     padding: 0;
     font-family: var(--font-sans);
     background: var(--background-color);
-    color: #222;
+    color: var(--text-color);
     min-height: 100vh;
 }
 
@@ -97,19 +99,105 @@ html, body {
     margin-bottom: 1rem;
     border: 1px solid var(--border-color);
     transition: box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
 }
 
 .form-group .section-title {
     font-size: 1rem;
     font-weight: 500;
     color: var(--text-color);
-    margin-bottom: 1rem;
+    margin: 0;
     padding: 0;
     border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+}
+
+.section-title span {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: ellipsis;
+}
+
+.section-title-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.enabled-checkbox {
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 1rem;
+    width: 1rem;
+    flex-shrink: 0;
+}
+
+.form-group-toggle {
+    background: none;
+    border: none;
+    color: var(--muted-text-color);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius);
+    transition: background-color 0.2s, color 0.2s;
+    margin: -0.25rem -0.5rem;
+    flex-shrink: 0;
+}
+
+.form-group-toggle:hover {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.form-group.collapsed .form-group-content {
+    display: none;
 }
 
 .form-group:last-of-type {
     margin-bottom: 0;
+}
+
+.input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.input-container .form-input {
+    flex: 1;
+}
+
+.default-indicator {
+    font-size: 0.75rem;
+    color: var(--info-color);
+    background-color: var(--info-background-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius);
+    white-space: nowrap;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: inherit;
 }
 
 .form-input {
@@ -118,9 +206,18 @@ html, body {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     font-size: 1rem;
-    margin-bottom: 0.5rem;
     background: var(--background-color);
     transition: border 0.2s;
+}
+
+.form-input.enabled-checkbox {
+    border: none;
+    background: none;;
+}
+
+.form-input::placeholder {
+    color: var(--muted-text-color);
+    opacity: 0.7;
 }
 
 .form-input:focus {
@@ -182,13 +279,13 @@ html, body {
 }
 
 .yaml-status.valid {
-    background-color: #e8f5e9;
-    color: #2e7d32;
+    background-color: var(--success-background-color);
+    color: var(--success-color);
 }
 
 .yaml-status.invalid {
-    background-color: #fff2f2;
-    color: #d32f2f;
+    background-color: var(--danger-background-color);
+    color: var(--danger-color);
 }
 
 .status-icon {
@@ -203,14 +300,14 @@ html, body {
     border: none;
     border-radius: var(--border-radius);
     font-size: 14px;
-    background-color: #e3f2fd;
-    color: #1565c0;
+    background-color: var(--info-background-color);
+    color: var(--info-color);
     cursor: pointer;
     transition: background-color 0.2s ease;
 }
 
 #download-btn:hover {
-    background-color: #bbdefb;
+    background-color: var(--info-hover-color);
 }
 
 #download-btn svg {
@@ -226,10 +323,10 @@ html, body {
 .yaml-error-message {
     margin-top: 1rem;
     padding: 1rem;
-    background-color: #fff2f2;
-    border: 1px solid #ffcdd2;
+    background-color: var(--danger-background-color);
+    border: 0px solid var(--danger-hover-color);
     border-radius: 10px;
-    color: #d32f2f;
+    color: var(--danger-color);
     font-size: 14px;
 }
 
