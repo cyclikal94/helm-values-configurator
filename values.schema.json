@@ -56,7 +56,12 @@
         "properties": {
           "name": {
             "type": "string"
-          }
+          },
+          "default": [
+            {
+              "name": "docker-registry-credentials"
+            }
+          ]
         },
         "additionalProperties": false
       },

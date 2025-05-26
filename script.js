@@ -332,6 +332,10 @@ function createInputElement(schema, path) {
         case 'boolean':
             input = document.createElement('input');
             input.type = 'checkbox';
+            if (defaultValue !== undefined) {
+                input.checked = defaultValue;
+                input.dataset.default = defaultValue;
+            }
             break;
 
         default:
@@ -371,6 +375,8 @@ function createInputElement(schema, path) {
                     const isDefault = e.target.value === String(defaultValue);
                     defaultIndicator.style.display = (isEmpty || isDefault) ? 'inline-flex' : 'none';
                 });
+                // Show indicator initially if empty (since placeholder shows default)
+                defaultIndicator.style.display = 'inline-flex';
             }
         }
 
@@ -870,10 +876,12 @@ function updateChangedFormFields(changedPaths, data) {
             (arrayInfo.isArrayItem && affectedPaths.has(`${arrayInfo.arrayPath}.${arrayInfo.index}.${arrayInfo.remainingPath}`))) {
             
             const value = getValueByPath(data, path);
+            const defaultValue = getSchemaDefaultValue(path);
             
             if (isEffectivelyEmpty(value)) {
                 if (input.type === 'checkbox') {
-                    input.checked = false;
+                    // For checkboxes, use default value if available, otherwise false
+                    input.checked = defaultValue !== undefined ? defaultValue : false;
                 } else {
                     input.value = '';
                 }
@@ -888,11 +896,12 @@ function updateChangedFormFields(changedPaths, data) {
             // Update default indicator if it exists
             const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
             if (defaultIndicator) {
-                const defaultValue = getSchemaDefaultValue(path);
                 if (input.type === 'checkbox') {
                     defaultIndicator.style.display = (input.checked === defaultValue) ? 'inline-flex' : 'none';
                 } else {
-                    defaultIndicator.style.display = (String(input.value) === String(defaultValue)) ? 'inline-flex' : 'none';
+                    const isEmpty = !input.value;
+                    const isDefault = input.value === String(defaultValue);
+                    defaultIndicator.style.display = (isEmpty || isDefault) ? 'inline-flex' : 'none';
                 }
             }
         }
@@ -991,14 +1000,15 @@ function getValueByPath(obj, path) {
 
 // Validate YAML content
 function validateYaml(fullUpdate = false) {
-    const content = editor.getValue();
+    const content = editor.getValue().trim();
     const statusElement = document.querySelector('.yaml-status');
     const statusIcon = statusElement.querySelector('.status-icon');
     const statusText = statusElement.querySelector('.status-text');
     const errorMessageElement = document.getElementById('yaml-error-message');
 
     try {
-        const newYamlData = jsyaml.load(content);
+        // Handle empty content as an empty object
+        const newYamlData = content ? jsyaml.load(content) || {} : {};
         
         // Find changed paths between old and new YAML data
         const changedPaths = findChangedPaths(previousYamlData, newYamlData);
