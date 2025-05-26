@@ -48,6 +48,20 @@
         }
       ]
     },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "A list of Secrets in this namespace to use as pull Secrets. Ignored if a given component specifies its own pull Secrets.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
     "elementWeb": {
       "type": "object",
       "description": "Element Web is a web-based client for the Matrix protocol — an open standard for secure, decentralized, real-time communication.",
@@ -160,7 +174,8 @@
               "description": "Optional type of ingress controller for automatic tweaks (e.g., ingress-nginx).",
               "enum": [
                 "ingress-nginx"
-              ]
+              ],
+              "default": "ingress-nginx"
             },
             "service": {
               "type": "object",
@@ -172,7 +187,8 @@
                     "ClusterIP",
                     "NodePort",
                     "LoadBalancer"
-                  ]
+                  ],
+                  "default": "ClusterIP"
                 }
               },
               "default": {},

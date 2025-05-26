@@ -232,21 +232,22 @@ input[type="checkbox"].form-input:not(:checked)::before {
 input[type="checkbox"].enabled-checkbox[data-tooltip]:hover::after {
     content: attr(data-tooltip);
     position: absolute;
-    background: var(--info-background-color);
-    color: var(--info-color);
+    background: var(--background-color);
+    color: var(--text-color);
     padding: 0.5rem;
     border-radius: var(--border-radius);
     font-size: 0.75rem;
     font-weight: normal;
     white-space: normal;
-    max-width: 250px;
+    width: max-content;
+    max-width: 300px;
     box-shadow: 0 2px 8px var(--box-shadow);
-    border: 0px solid var(--border-color);
+    border: 1px solid var(--border-color);
     z-index: 1000;
-    top: 100%;
-    left: 0;
-    margin-top: 0.5rem;
+    bottom: calc(100% + 0.5rem);
     pointer-events: none;
+    line-height: 1.4;
+    text-align: center;
 }
 
 .form-group-toggle {

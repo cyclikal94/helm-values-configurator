@@ -217,12 +217,9 @@ function createInputElement(schema, path) {
         case 'string':
             if (schema.enum) {
                 input = document.createElement('select');
-                // Add an empty option if no default value
+                // Set initial hidden value if no default
                 if (defaultValue === undefined) {
-                    const emptyOption = document.createElement('option');
-                    emptyOption.value = '';
-                    emptyOption.textContent = '-- Select --';
-                    input.appendChild(emptyOption);
+                    input.value = '';
                 }
                 schema.enum.forEach(option => {
                     const optionElement = document.createElement('option');
