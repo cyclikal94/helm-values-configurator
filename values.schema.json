@@ -56,16 +56,15 @@
         "properties": {
           "name": {
             "type": "string"
-          },
-          "default": [
-            {
-              "name": "docker-registry-credentials"
-            }
-          ]
+          }
         },
         "additionalProperties": false
       },
-      "default": []
+      "default": [
+        {
+          "name": "docker-registry-credentials"
+        }
+      ]
     },
     "elementWeb": {
       "type": "object",

@@ -595,3 +595,34 @@ input[type="checkbox"].enabled-checkbox[data-tooltip]:hover::after {
 .array-control-btn:hover {
     filter: brightness(0.95);
 }
+
+.form-group-required {
+    background-color: var(--warning-background-color) !important;
+    color: var(--warning-color) !important;
+    margin-left: 0.5rem;
+    cursor: help;
+    position: relative;
+}
+
+.form-group-required:hover::after {
+    content: attr(title);
+    position: absolute;
+    background: var(--background-color);
+    color: var(--text-color);
+    padding: 0.5rem;
+    border-radius: var(--border-radius);
+    font-size: 0.75rem;
+    font-weight: normal;
+    white-space: normal;
+    width: max-content;
+    max-width: 300px;
+    box-shadow: 0 2px 8px var(--box-shadow);
+    border: 1px solid var(--border-color);
+    z-index: 1000;
+    bottom: calc(100% + 0.5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    line-height: 1.4;
+    text-align: center;
+}

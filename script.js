@@ -92,6 +92,46 @@ function formatFieldName(name) {
         .trim();
 }
 
+// Helper function to check if a field is required
+function isFieldRequired(schema, path) {
+    // Check direct required field
+    if (schema.required && Array.isArray(schema.required)) {
+        const fieldName = path.split('.').pop();
+        return schema.required.includes(fieldName);
+    }
+    
+    // Check parent's required fields
+    const parts = path.split('.');
+    if (parts.length > 1) {
+        const parentPath = parts.slice(0, -1);
+        const fieldName = parts[parts.length - 1];
+        let current = schema;
+        
+        // Traverse to parent
+        for (const part of parentPath) {
+            if (current?.properties?.[part]) {
+                current = current.properties[part];
+            } else {
+                return false;
+            }
+        }
+        
+        // Check standard required array
+        if (current.required && Array.isArray(current.required) && current.required.includes(fieldName)) {
+            return true;
+        }
+        
+        // Handle conditional requirements
+        if (path === 'elementWeb.image.repository') {
+            // repository is required if elementWeb.image is defined in the YAML
+            const imageValue = getValueByPath(yamlData, 'elementWeb.image');
+            return imageValue !== undefined && Object.keys(imageValue || {}).length > 0;
+        }
+    }
+    
+    return false;
+}
+
 // Generate form from schema
 function generateForm(schema, parentElement, path = '') {
     if (!schema || !schema.properties) return;
@@ -118,6 +158,15 @@ function generateForm(schema, parentElement, path = '') {
         const title_text = document.createElement('span');
         title_text.textContent = formatFieldName(key);
         section_title.appendChild(title_text);
+
+        // Add required indicator if field is required
+        if (isFieldRequired(schema, currentPath)) {
+            const requiredIndicator = document.createElement('span');
+            requiredIndicator.className = 'form-group-controls form-group-required';
+            requiredIndicator.textContent = '*';
+            requiredIndicator.title = 'This field is required';
+            title_text.appendChild(requiredIndicator);
+        }
 
         const title_controls = document.createElement('div');
         title_controls.className = 'section-title-controls';
@@ -231,6 +280,14 @@ function createInputElement(schema, path) {
             const arrayControls = document.createElement('div');
             arrayControls.className = 'array-controls';
             
+            // Add default indicator if there's a default value
+            if (defaultValue !== undefined) {
+                const defaultIndicator = document.createElement('span');
+                defaultIndicator.className = 'default-indicator';
+                defaultIndicator.textContent = 'default';
+                arrayControls.appendChild(defaultIndicator);
+            }
+            
             // Add item button
             const addButton = document.createElement('button');
             addButton.className = 'form-group-controls form-group-add';
@@ -251,6 +308,8 @@ function createInputElement(schema, path) {
                 
                 // Show toggle button when items exist
                 updateArrayToggleVisibility(container);
+                // Update default indicator
+                updateArrayDefaultIndicator(container, path);
             });
             
             // Clear array button
@@ -263,6 +322,8 @@ function createInputElement(schema, path) {
                 handleInputChange({ target: container }, path);
                 // Hide toggle button when no items
                 updateArrayToggleVisibility(container);
+                // Update default indicator
+                updateArrayDefaultIndicator(container, path);
             });
 
             // Toggle button for array section
@@ -281,6 +342,7 @@ function createInputElement(schema, path) {
             arrayControls.appendChild(addButton);
             arrayControls.appendChild(clearButton);
             arrayControls.appendChild(toggleBtn); // Add toggle as last control
+
             container.arrayControls = arrayControls; // Attach controls to container for later use
             
             // If there's a default value, populate it
@@ -975,6 +1037,9 @@ function updateArrayContainer(container, arrayPath, arrayValue, fullData) {
 
     // Update toggle visibility based on array items
     updateArrayToggleVisibility(container);
+
+    // Update default indicator
+    updateArrayDefaultIndicator(container, arrayPath);
 }
 
 // Helper function to get array item schema from the global schema
@@ -996,6 +1061,36 @@ function getValueByPath(obj, path) {
         // Return undefined if any part of the path is missing
         return acc === undefined ? undefined : acc?.[part];
     }, obj);
+}
+
+// Helper function to update required indicators
+function updateRequiredIndicators() {
+    // Get all section titles
+    const sectionTitles = document.querySelectorAll('.section-title');
+    sectionTitles.forEach(title => {
+        // Get the path from the closest input or container
+        const container = title.closest('.form-group');
+        const input = container.querySelector('.form-input');
+        const path = input ? input.id : container.querySelector('.form-group-content')?.id;
+        
+        if (!path) return;
+        
+        // Remove existing required indicator
+        const existingIndicator = title.querySelector('.form-group-required');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+        
+        // Check if field is required
+        if (isFieldRequired(schema, path)) {
+            const titleText = title.querySelector('span');
+            const requiredIndicator = document.createElement('span');
+            requiredIndicator.className = 'form-group-controls form-group-required';
+            requiredIndicator.textContent = '*';
+            requiredIndicator.title = 'This field is required';
+            titleText.appendChild(requiredIndicator);
+        }
+    });
 }
 
 // Validate YAML content
@@ -1029,6 +1124,9 @@ function validateYaml(fullUpdate = false) {
         // Update the stored YAML data (fix the order)
         yamlData = newYamlData;
         previousYamlData = JSON.parse(JSON.stringify(newYamlData)); // Deep copy new state
+        
+        // Update required indicators
+        updateRequiredIndicators();
     } catch (error) {
         // Update status to invalid
         statusElement.classList.remove('valid');
@@ -1085,4 +1183,70 @@ function getArrayInfo(path) {
         };
     }
     return { isArrayItem: false };
+}
+
+// Helper function to update array default indicator
+function updateArrayDefaultIndicator(container, arrayPath) {
+    const arrayControls = container.arrayControls;
+    if (!arrayControls) return;
+
+    const defaultIndicator = arrayControls.querySelector('.default-indicator');
+    if (!defaultIndicator) return;
+
+    const defaultValue = getSchemaDefaultValue(arrayPath);
+    if (defaultValue === undefined) return;
+
+    // Get current array value from the form
+    const currentValue = [];
+    Array.from(container.children).forEach((card, index) => {
+        const itemValue = {};
+        const inputs = card.querySelectorAll('.form-input');
+        inputs.forEach(input => {
+            const key = input.id.split('.').pop(); // Get the last part of the path
+            if (input.type === 'checkbox') {
+                itemValue[key] = input.checked;
+            } else {
+                itemValue[key] = input.value || '';
+            }
+        });
+        if (Object.keys(itemValue).length > 0) {
+            currentValue.push(itemValue);
+        }
+    });
+
+    // Helper function to compare arrays deeply
+    const arraysEqual = (a, b) => {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        
+        for (let i = 0; i < a.length; i++) {
+            const aVal = a[i];
+            const bVal = b[i];
+            
+            // If both values are objects, compare their properties
+            if (typeof aVal === 'object' && typeof bVal === 'object') {
+                const aKeys = Object.keys(aVal);
+                const bKeys = Object.keys(bVal);
+                
+                if (aKeys.length !== bKeys.length) return false;
+                
+                for (const key of aKeys) {
+                    if (aVal[key] !== bVal[key]) return false;
+                }
+            } else if (aVal !== bVal) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    // Check if the array is explicitly defined in the YAML
+    const arrayExists = getValueByPath(yamlData, arrayPath) !== undefined;
+    
+    // Only show default indicator if:
+    // 1. The array is undefined in the YAML (not explicitly set to empty)
+    // 2. OR the current value exactly matches the default value
+    const isUndefined = !arrayExists;
+    const matchesDefault = arraysEqual(currentValue, defaultValue);
+    defaultIndicator.style.display = (isUndefined || matchesDefault) ? 'inline-flex' : 'none';
 }
