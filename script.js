@@ -193,6 +193,14 @@ function generateForm(schema, parentElement, path = '') {
                     description.textContent = value.description;
                     form_group.appendChild(description);
                 }
+                
+                // If this is an array type, move its controls to the title_controls
+                if (value.type === 'array' && input.arrayControls) {
+                    const controls = input.arrayControls;
+                    controls.className = 'section-title-controls';
+                    title_controls.appendChild(controls);
+                }
+                
                 form_group.appendChild(input);
             }
         }
@@ -214,6 +222,52 @@ function createInputElement(schema, path) {
     const defaultValue = schema.default;
 
     switch (primaryType) {
+        case 'array':
+            container = document.createElement('div');
+            container.className = 'form-group-content';
+            
+            
+            // If there's a default value, populate it
+            if (defaultValue && Array.isArray(defaultValue)) {
+                defaultValue.forEach((item, index) => {
+                    const itemCard = createArrayItemCard(schema.items, path, index);
+                    container.appendChild(itemCard);
+                });
+                updateArrayItemTitles(container, path);
+            }
+            
+            // Create array controls - these will be moved to the form-group header by the generateForm function
+            const arrayControls = document.createElement('div');
+            arrayControls.className = 'array-controls';
+            
+            // Add item button
+            const addButton = document.createElement('button');
+            addButton.className = 'form-group-toggle';
+            addButton.innerHTML = '+';
+            addButton.title = 'Add item';
+            addButton.addEventListener('click', () => {
+                const itemCount = container.children.length;
+                const newCard = createArrayItemCard(schema.items, path, itemCount);
+                container.appendChild(newCard);
+                updateArrayItemTitles(container, path);
+            });
+            
+            // Clear array button
+            const clearButton = document.createElement('button');
+            clearButton.className = 'form-group-toggle';
+            clearButton.innerHTML = '✗';
+            clearButton.title = 'Clear all items';
+            clearButton.addEventListener('click', () => {
+                container.innerHTML = '';
+                handleInputChange({ target: container }, path);
+            });
+            
+            arrayControls.appendChild(addButton);
+            arrayControls.appendChild(clearButton);
+            container.arrayControls = arrayControls; // Attach controls to container for later use
+            
+            return container;
+
         case 'string':
             if (schema.enum) {
                 input = document.createElement('select');
@@ -296,6 +350,154 @@ function createInputElement(schema, path) {
     }
 
     return container;
+}
+
+// Helper function to create an array item card
+function createArrayItemCard(itemSchema, arrayPath, index) {
+    const card = document.createElement('div');
+    card.className = 'form-group';
+    
+    // Create card header
+    const header = document.createElement('div');
+    header.className = 'form-group-header';
+    
+    const section_title = document.createElement('div');
+    section_title.className = 'section-title';
+    
+    // Create title
+    const title_text = document.createElement('span');
+    title_text.className = 'array-item-title'; // Keep this class for updating titles
+    section_title.appendChild(title_text);
+    
+    // Create controls
+    const title_controls = document.createElement('div');
+    title_controls.className = 'section-title-controls';
+    
+    // Move up button
+    const moveUpBtn = document.createElement('button');
+    moveUpBtn.className = 'form-group-toggle';
+    moveUpBtn.innerHTML = '↑';
+    moveUpBtn.title = 'Move up';
+    moveUpBtn.addEventListener('click', () => {
+        const prev = card.previousElementSibling;
+        if (prev) {
+            card.parentNode.insertBefore(card, prev);
+            updateArrayItemTitles(card.parentNode, arrayPath);
+            handleInputChange({ target: card.parentNode }, arrayPath);
+        }
+    });
+    
+    // Move down button
+    const moveDownBtn = document.createElement('button');
+    moveDownBtn.className = 'form-group-toggle';
+    moveDownBtn.innerHTML = '↓';
+    moveDownBtn.title = 'Move down';
+    moveDownBtn.addEventListener('click', () => {
+        const next = card.nextElementSibling;
+        if (next) {
+            card.parentNode.insertBefore(next, card);
+            updateArrayItemTitles(card.parentNode, arrayPath);
+            handleInputChange({ target: card.parentNode }, arrayPath);
+        }
+    });
+    
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'form-group-toggle';
+    removeBtn.innerHTML = '✗';
+    removeBtn.title = 'Remove item';
+    removeBtn.addEventListener('click', () => {
+        card.remove();
+        const arrayContent = card.parentNode;
+        updateArrayItemTitles(arrayContent, arrayPath);
+        handleInputChange({ target: arrayContent }, arrayPath);
+    });
+    
+    title_controls.appendChild(moveUpBtn);
+    title_controls.appendChild(moveDownBtn);
+    title_controls.appendChild(removeBtn);
+    section_title.appendChild(title_controls);
+    header.appendChild(section_title);
+    card.appendChild(header);
+    
+    // Create content
+    const content = document.createElement('div');
+    content.className = 'form-group-content';
+    
+    // Generate form elements for the item's properties
+    if (itemSchema.type === 'object' && itemSchema.properties) {
+        Object.entries(itemSchema.properties).forEach(([key, propSchema]) => {
+            const itemPath = `${arrayPath}[${index}].${key}`;
+            
+            const form_group = document.createElement('div');
+            form_group.className = 'form-group';
+            
+            const label = document.createElement('div');
+            label.className = 'section-title';
+            label.textContent = formatFieldName(key);
+            if (propSchema.description) {
+                label.title = propSchema.description;
+            }
+            form_group.appendChild(label);
+            
+            const input = createInputElement(propSchema, itemPath);
+            if (input) {
+                if (propSchema.description) {
+                    const description = document.createElement('div');
+                    description.className = 'field-description';
+                    description.textContent = propSchema.description;
+                    form_group.appendChild(description);
+                }
+                form_group.appendChild(input);
+                
+                // If this is a name property, update the card title when it changes
+                if (key === 'name') {
+                    const nameInput = input.querySelector('input');
+                    if (nameInput) {
+                        nameInput.addEventListener('input', (e) => {
+                            const value = e.target.value.trim();
+                            const defaultTitle = getDefaultArrayItemTitle(arrayPath, index);
+                            title_text.textContent = value || defaultTitle;
+                        });
+                    }
+                }
+            }
+            content.appendChild(form_group);
+        });
+    }
+    
+    card.appendChild(content);
+    
+    // Set initial title
+    title_text.textContent = getDefaultArrayItemTitle(arrayPath, index);
+    
+    return card;
+}
+
+// Helper function to update array item titles
+function updateArrayItemTitles(arrayContent, arrayPath) {
+    const cards = arrayContent.children;
+    Array.from(cards).forEach((card, index) => {
+        const title = card.querySelector('.array-item-title');
+        const nameInput = card.querySelector('input[id$=".name"]');
+        const nameValue = nameInput ? nameInput.value.trim() : '';
+        title.textContent = nameValue || getDefaultArrayItemTitle(arrayPath, index);
+        
+        // Update all input IDs to reflect new index
+        const inputs = card.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            const oldId = input.id;
+            const newId = oldId.replace(/\[\d+\]/, `[${index}]`);
+            input.id = newId;
+        });
+    });
+}
+
+// Helper function to get default array item title
+function getDefaultArrayItemTitle(arrayPath, index) {
+    const baseName = formatFieldName(arrayPath.split('.').pop().replace(/\[\d+\]$/, ''));
+    // Remove trailing 's' if it exists and add item number
+    return `${baseName.replace(/s$/, '')} ${index + 1}`;
 }
 
 // Handle form input changes

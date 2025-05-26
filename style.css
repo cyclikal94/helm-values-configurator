@@ -477,3 +477,98 @@ input[type="checkbox"].enabled-checkbox[data-tooltip]:hover::after {
         gap: 0.5rem;
     }
 }
+
+/****************************
+ * Array Styles            *
+ ****************************/
+
+.array-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+}
+
+.array-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.array-item-card {
+    background: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.array-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.array-item-title {
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.array-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.array-item-content label {
+    font-size: 0.9rem;
+    color: var(--muted-text-color);
+    cursor: help;
+}
+
+.array-control-btn {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding: 0.25rem 0.5rem !important;
+    height: 1.75rem;
+    min-width: 1.75rem;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: bold;
+    font-family: var(--font-sans);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+    flex-shrink: 0;
+    background-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.array-control-btn.add-btn {
+    background-color: var(--success-background-color);
+    color: var(--success-color);
+}
+
+.array-control-btn.clear-btn,
+.array-control-btn.remove-btn {
+    background-color: var(--danger-background-color);
+    color: var(--danger-color);
+}
+
+.array-control-btn.move-up-btn,
+.array-control-btn.move-down-btn {
+    background-color: var(--info-background-color);
+    color: var(--info-color);
+}
+
+.array-control-btn:hover {
+    filter: brightness(0.95);
+}
