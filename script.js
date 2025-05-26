@@ -253,19 +253,18 @@ function createInputElement(schema, path) {
 
             if (input.type === 'checkbox') {
                 container.appendChild(input);
-            }
-
-            // For non-checkbox inputs, update the indicator visibility based on value
-            if (input.type !== 'checkbox') {
+                // For checkboxes, update indicator based on checked state
+                input.addEventListener('change', (e) => {
+                    defaultIndicator.style.visibility = (e.target.checked === defaultValue) ? 'visible' : 'hidden';
+                });
+                // Set initial visibility
+                defaultIndicator.style.visibility = (input.checked === defaultValue) ? 'visible' : 'hidden';
+            } else {
+                // For non-checkbox inputs, update the indicator visibility based on value
                 input.addEventListener('input', (e) => {
                     const isEmpty = !e.target.value;
                     const isDefault = e.target.value === String(defaultValue);
                     defaultIndicator.style.display = (isEmpty || isDefault) ? 'block' : 'none';
-                });
-            } else {
-                // For checkboxes, update indicator based on checked state
-                input.addEventListener('change', (e) => {
-                    defaultIndicator.style.visibility = (e.target.checked === defaultValue) ? 'visible' : 'hidden';
                 });
             }
         }
@@ -304,7 +303,7 @@ function populateFormFromYaml(data, parentPath = '') {
                 const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                 if (defaultIndicator) {
                     const defaultValue = getSchemaDefaultValue(input.id);
-                    defaultIndicator.style.visibility = (!input.checked && defaultValue === false) ? 'visible' : 'hidden';
+                    defaultIndicator.style.visibility = (input.checked === defaultValue) ? 'visible' : 'hidden';
                 }
             } else {
                 input.value = '';
@@ -330,7 +329,7 @@ function populateFormFromYaml(data, parentPath = '') {
                     const defaultIndicator = input.closest('.input-container')?.querySelector('.default-indicator');
                     if (defaultIndicator) {
                         const defaultValue = getSchemaDefaultValue(path);
-                        defaultIndicator.style.display = (value === defaultValue) ? 'block' : 'none';
+                        defaultIndicator.style.visibility = (value === defaultValue) ? 'visible' : 'hidden';
                     }
                 } else {
                     input.value = value ?? '';
