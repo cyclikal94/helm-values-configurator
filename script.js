@@ -144,8 +144,8 @@ function generateForm(schema, parentElement, path = '') {
         const form_group = document.createElement('div');
         form_group.className = 'form-group';
         
-        // Add collapsed class by default if it has properties
-        if (value.type === 'object' && value.properties) {
+        // Add collapsed class by default if it has properties or is an array
+        if ((value.type === 'object' && value.properties) || value.type === 'array') {
             form_group.classList.add('collapsed');
         }
         
@@ -297,7 +297,7 @@ function createInputElement(schema, path) {
                 const itemCount = container.children.length;
                 const newCard = createArrayItemCard(schema.items, path, itemCount);
                 
-                // Ensure section is expanded when adding items
+                // Only expand section when manually adding items
                 const parentGroup = container.closest('.form-group');
                 if (parentGroup) {
                     parentGroup.classList.remove('collapsed');
@@ -315,8 +315,9 @@ function createInputElement(schema, path) {
             // Clear array button
             const clearButton = document.createElement('button');
             clearButton.className = 'form-group-controls form-group-remove';
-            clearButton.innerHTML = '✗';
+            clearButton.innerHTML = '-';
             clearButton.title = 'Clear all items';
+            clearButton.style.display = 'none'; // Initially hidden
             clearButton.addEventListener('click', () => {
                 container.innerHTML = '';
                 handleInputChange({ target: container }, path);
@@ -480,6 +481,7 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
             card.parentNode.insertBefore(card, prev);
             updateArrayItemTitles(card.parentNode, arrayPath);
             handleInputChange({ target: card.parentNode }, arrayPath);
+            updateArrayDefaultIndicator(card.parentNode, arrayPath);
         }
     });
     
@@ -494,6 +496,7 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
             card.parentNode.insertBefore(next, card);
             updateArrayItemTitles(card.parentNode, arrayPath);
             handleInputChange({ target: card.parentNode }, arrayPath);
+            updateArrayDefaultIndicator(card.parentNode, arrayPath);
         }
     });
     
@@ -508,6 +511,9 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
             card.remove();
             updateArrayItemTitles(arrayContent, arrayPath);
             handleInputChange({ target: arrayContent }, arrayPath);
+            // Update toggle visibility and default indicator after removing the item
+            updateArrayToggleVisibility(arrayContent);
+            updateArrayDefaultIndicator(arrayContent, arrayPath);
         }
     });
     
@@ -522,8 +528,9 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
     const content = document.createElement('div');
     content.className = 'form-group-content';
     
-    // Generate form elements for the item's properties
+    // Generate form elements for the item
     if (itemSchema.type === 'object' && itemSchema.properties) {
+        // Handle object type items
         Object.entries(itemSchema.properties).forEach(([key, propSchema]) => {
             const itemPath = `${arrayPath}.${index}.${key}`;
             
@@ -548,26 +555,109 @@ function createArrayItemCard(itemSchema, arrayPath, index) {
                 }
                 form_group.appendChild(input);
                 
+                // Get default value for this field
+                const defaultValue = getArrayItemDefaultValue(arrayPath, index, key);
+                
+                // Set placeholder if there's a default value
+                const formInput = input.querySelector('input, select');
+                if (formInput && defaultValue !== undefined) {
+                    formInput.placeholder = defaultValue;
+                }
+
+                // Add input change handler for default state
+                if (formInput) {
+                    formInput.addEventListener('input', (e) => {
+                        // Check if all inputs are using defaults
+                        if (isArrayItemUsingDefaults(card, arrayPath, index)) {
+                            card.classList.add('default-array-item');
+                        } else {
+                            card.classList.remove('default-array-item');
+                        }
+                        // Update array default indicator
+                        const arrayContainer = card.closest('.form-group-content');
+                        if (arrayContainer) {
+                            updateArrayDefaultIndicator(arrayContainer, arrayPath);
+                        }
+                    });
+                }
+                
                 // If this is a name property, update the card title when it changes
                 if (key === 'name') {
                     const nameInput = input.querySelector('input');
                     if (nameInput) {
+                        // Update title on input change
                         nameInput.addEventListener('input', (e) => {
                             const value = e.target.value.trim();
+                            const placeholder = nameInput.placeholder;
                             const defaultTitle = getDefaultArrayItemTitle(arrayPath, index);
-                            title_text.textContent = value || defaultTitle;
+                            title_text.textContent = value || placeholder || defaultTitle;
                         });
+                        
+                        // Set initial title based on placeholder if input is empty
+                        if (!nameInput.value && nameInput.placeholder) {
+                            title_text.textContent = nameInput.placeholder;
+                        }
                     }
                 }
             }
             content.appendChild(form_group);
         });
+    } else {
+        // Handle primitive type items using createInputElement
+        const itemPath = `${arrayPath}.${index}`;
+        const input = createInputElement(itemSchema, itemPath);
+        if (input) {
+            // Get default value
+            const defaultValue = getArrayItemDefaultValue(arrayPath, index);
+            
+            // Get the actual input element
+            const formInput = input.querySelector('input, select');
+            if (formInput) {
+                // Set placeholder if there's a default value
+                if (defaultValue !== undefined) {
+                    formInput.placeholder = defaultValue;
+                }
+                
+                // Add input change handler
+                formInput.addEventListener('input', (e) => {
+                    const value = e.target.value.trim();
+                    
+                    // Update card title
+                    title_text.textContent = value || getDefaultArrayItemTitle(arrayPath, index);
+                    
+                    // Update default state
+                    if (!value && defaultValue !== undefined) {
+                        card.classList.add('default-array-item');
+                    } else {
+                        card.classList.remove('default-array-item');
+                    }
+                    
+                    // Update array default indicator
+                    const arrayContainer = card.closest('.form-group-content');
+                    if (arrayContainer) {
+                        updateArrayDefaultIndicator(arrayContainer, arrayPath);
+                    }
+                });
+                
+                // Set initial state
+                if (!formInput.value && defaultValue !== undefined) {
+                    card.classList.add('default-array-item');
+                }
+            }
+            
+            content.appendChild(input);
+        }
     }
     
     card.appendChild(content);
     
     // Set initial title
     title_text.textContent = getDefaultArrayItemTitle(arrayPath, index);
+    
+    // Set initial default class state
+    if (isArrayItemUsingDefaults(card, arrayPath, index)) {
+        card.classList.add('default-array-item');
+    }
     
     return card;
 }
@@ -593,10 +683,25 @@ function updateArrayItemTitles(arrayContainer, arrayPath) {
 
         // Update the title
         const title = card.querySelector('.array-item-title');
-        const nameInput = card.querySelector(`[id$=".${index}.name"]`);
-        const nameValue = nameInput ? nameInput.value.trim() : '';
         if (title) {
-            title.textContent = nameValue || getDefaultArrayItemTitle(arrayPath, index);
+            // Check if this is an object array item (has .name field) or primitive array item
+            const nameInput = card.querySelector(`[id$=".${index}.name"]`);
+            if (nameInput) {
+                // Object array item - use name field
+                const nameValue = nameInput.value.trim();
+                const placeholder = nameInput.placeholder;
+                title.textContent = nameValue || placeholder || getDefaultArrayItemTitle(arrayPath, index);
+            } else {
+                // Primitive array item - use the direct input value
+                const input = card.querySelector('.form-input');
+                if (input) {
+                    const value = input.value.trim();
+                    const placeholder = input.placeholder;
+                    title.textContent = value || placeholder || getDefaultArrayItemTitle(arrayPath, index);
+                } else {
+                    title.textContent = getDefaultArrayItemTitle(arrayPath, index);
+                }
+            }
         }
     });
 }
@@ -1029,6 +1134,13 @@ function updateArrayContainer(container, arrayPath, arrayValue, fullData) {
                 const nameValue = itemValue.name;
                 titleElement.textContent = nameValue || getDefaultArrayItemTitle(arrayPath, index);
             }
+
+            // Update default class state
+            if (isArrayItemUsingDefaults(card, arrayPath, index)) {
+                card.classList.add('default-array-item');
+            } else {
+                card.classList.remove('default-array-item');
+            }
         }
     });
 
@@ -1040,6 +1152,17 @@ function updateArrayContainer(container, arrayPath, arrayValue, fullData) {
 
     // Update default indicator
     updateArrayDefaultIndicator(container, arrayPath);
+
+    // If all items are using defaults, ensure the section stays collapsed
+    const allItemsUsingDefaults = Array.from(container.children).every(card => 
+        isArrayItemUsingDefaults(card, arrayPath, Array.from(container.children).indexOf(card))
+    );
+    if (allItemsUsingDefaults) {
+        const parentGroup = container.closest('.form-group');
+        if (parentGroup) {
+            parentGroup.classList.add('collapsed');
+        }
+    }
 }
 
 // Helper function to get array item schema from the global schema
@@ -1159,10 +1282,12 @@ function updateArrayToggleVisibility(container) {
     if (!arrayControls) return;
 
     const toggleBtn = arrayControls.querySelector('.form-group-toggle');
-    if (!toggleBtn) return;
+    const clearBtn = arrayControls.querySelector('.form-group-remove');
+    if (!toggleBtn || !clearBtn) return;
 
     const hasItems = container.children.length > 0;
     toggleBtn.style.display = hasItems ? 'inline-flex' : 'none';
+    clearBtn.style.display = hasItems ? 'inline-flex' : 'none';
 
     // Update toggle button icon to match current state
     const parentGroup = container.closest('.form-group');
@@ -1249,4 +1374,33 @@ function updateArrayDefaultIndicator(container, arrayPath) {
     const isUndefined = !arrayExists;
     const matchesDefault = arraysEqual(currentValue, defaultValue);
     defaultIndicator.style.display = (isUndefined || matchesDefault) ? 'inline-flex' : 'none';
+}
+
+// Helper function to get array item default value
+function getArrayItemDefaultValue(arrayPath, index, fieldName) {
+    const defaultValue = getSchemaDefaultValue(arrayPath);
+    if (Array.isArray(defaultValue) && defaultValue[index]) {
+        // If fieldName is provided, treat as object array item
+        if (fieldName) {
+            return defaultValue[index][fieldName];
+        }
+        // Otherwise treat as primitive array item
+        return defaultValue[index];
+    }
+    return undefined;
+}
+
+// Helper function to check if an array item is using all default values
+function isArrayItemUsingDefaults(card, arrayPath, index) {
+    const inputs = card.querySelectorAll('.form-input');
+    return Array.from(inputs).every(input => {
+        const key = input.id.split('.').pop();
+        const defaultValue = getArrayItemDefaultValue(arrayPath, index, key);
+        if (input.type === 'checkbox') {
+            return input.checked === defaultValue;
+        } else {
+            const value = input.value.trim();
+            return !value && defaultValue !== undefined;
+        }
+    });
 }

@@ -12,6 +12,7 @@ todo
 - [ ] make it so that the required * icon only appears if you have actually directly specified anything within the associated section
     - [ ] required icon should show up for array items
 - [ ] key/value pairs!?
+- [ ] Sort defualt tags for arrays (/ probably all other complex types)
 
 the big one:
 - [ ] have the UI update the YAML

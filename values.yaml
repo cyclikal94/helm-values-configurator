@@ -10,7 +10,7 @@ certManager: {}
 ## e.g.
 ## imagePullSecrets:
 ## - name: ess-pull-secret
-imagePullSecrets: []
+#imagePullSecrets: []
 
 ## The server name of the Matrix Stack. This gets embedded in user IDs & room IDs
 ## It can not change after the initial deployment.

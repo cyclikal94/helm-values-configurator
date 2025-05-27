@@ -626,3 +626,8 @@ input[type="checkbox"].enabled-checkbox[data-tooltip]:hover::after {
     line-height: 1.4;
     text-align: center;
 }
+
+.form-group.default-array-item {
+    background-color: var(--border-color);
+    background-color: var(--background-color);
+}
